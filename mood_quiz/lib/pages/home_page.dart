@@ -146,7 +146,7 @@ class HomePageState extends State<HomePage> {
           top: 107,
           width: 166,
           height: 153,
-          child: Image.asset(todayW.iconAsset,
+          child: Image.asset(todayW.glyphAsset,
               fit: BoxFit.contain,
               errorBuilder: (_, _, _) => Center(
                   child: Text(todayW.emoji, style: const TextStyle(fontSize: 72)))),
@@ -286,7 +286,7 @@ class HomePageState extends State<HomePage> {
             top: -6,
             width: 64,
             height: 56,
-            child: Image.asset(w.iconAsset,
+            child: Image.asset(w.glyphAsset,
                 fit: BoxFit.contain,
                 errorBuilder: (_, _, _) =>
                     Center(child: Text(w.emoji, style: const TextStyle(fontSize: 32)))),
