@@ -124,19 +124,15 @@ class HomePageState extends State<HomePage> {
           child: Container(
             width: 343,
             height: 178,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: const LinearGradient(
+            // 注意：卡片填充是半透明的，若加 BoxShadow，阴影会透过填充显示成
+            // 一块灰黑方块（CSS 的 box-shadow 会裁掉盒内部分，Flutter 不会），故不加阴影。
+            decoration: const BoxDecoration(
+              borderRadius: BorderRadius.all(Radius.circular(20)),
+              gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [Color(0x1AFFE229), Color(0x1A7FC4FB)],
               ),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 12,
-                    offset: const Offset(0, 2)),
-              ],
             ),
           ),
         ),

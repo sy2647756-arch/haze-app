@@ -7,8 +7,11 @@ import 'write_diary_page.dart';
 
 /// Report 页，像素还原 Figma 70:1180（设计画布 393×852，内容区在导航之上）。
 class ReportPage extends StatefulWidget {
-  const ReportPage({super.key, required this.repo});
+  const ReportPage({super.key, required this.repo, this.onBack});
   final DiaryRepository repo;
+
+  /// 左上角返回：回到 Weather mood 首页。
+  final VoidCallback? onBack;
 
   @override
   State<ReportPage> createState() => ReportPageState();
@@ -103,8 +106,11 @@ class ReportPageState extends State<ReportPage> {
         Positioned(
           left: 18,
           top: 64,
-          child: Icon(Icons.chevron_left,
-              size: 28, color: Colors.black.withValues(alpha: 0.7)),
+          child: GestureDetector(
+            onTap: widget.onBack,
+            child: Icon(Icons.chevron_left,
+                size: 28, color: Colors.black.withValues(alpha: 0.7)),
+          ),
         ),
         Positioned(
           left: 344,

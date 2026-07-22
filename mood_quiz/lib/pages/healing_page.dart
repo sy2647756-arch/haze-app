@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 /// Healing 主页，像素还原 Figma 70:1109。
 /// 2 列 × 3 行共 6 张功能卡（160×229）：插画 + 黄色标题药丸 + Intro。
 class HealingPage extends StatelessWidget {
-  const HealingPage({super.key});
+  const HealingPage({super.key, this.onBack});
+
+  /// 左上角返回：回到 Weather mood 首页。
+  final VoidCallback? onBack;
 
   /// (标题, 插画资源) —— 顺序即网格阅读顺序（左右、上下）。
   static const _items = <(String, String)>[
@@ -37,8 +40,11 @@ class HealingPage extends StatelessWidget {
           Positioned(
             left: 18,
             top: 59,
-            child: Icon(Icons.chevron_left,
-                size: 28, color: Colors.black.withValues(alpha: 0.7)),
+            child: GestureDetector(
+              onTap: onBack,
+              child: Icon(Icons.chevron_left,
+                  size: 28, color: Colors.black.withValues(alpha: 0.7)),
+            ),
           ),
           // 卡片网格（可滚动）
           Positioned(

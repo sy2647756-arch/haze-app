@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'data/diary_repository.dart';
 import 'pages/healing_page.dart';
 import 'pages/home_page.dart';
+import 'pages/my_page.dart';
 import 'pages/report_page.dart';
 import 'widgets/app_bottom_nav.dart';
 
@@ -78,10 +79,13 @@ class _RootShellState extends State<RootShell> {
 
   late final List<Widget> _pages = [
     HomePage(key: _homeKey, repo: _repo, onOpenReport: () => _select(2)),
-    const HealingPage(),
-    ReportPage(key: _reportKey, repo: _repo),
-    const _ComingSoonPage(title: 'My'),
+    HealingPage(onBack: _goHome),
+    ReportPage(key: _reportKey, repo: _repo, onBack: _goHome),
+    MyPage(onBack: _goHome),
   ];
+
+  /// 各页左上角返回 -> 回到 Weather mood 首页。
+  void _goHome() => _select(0);
 
   void _select(int i) {
     setState(() => _index = i);
@@ -109,24 +113,3 @@ class _RootShellState extends State<RootShell> {
   }
 }
 
-class _ComingSoonPage extends StatelessWidget {
-  const _ComingSoonPage({required this.title});
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFF3E9FB), Color(0xFFFFF5D3)],
-        ),
-      ),
-      child: Center(
-        child: Text('$title — coming soon',
-            style: const TextStyle(fontSize: 18, color: Colors.black54)),
-      ),
-    );
-  }
-}
