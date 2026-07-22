@@ -10,8 +10,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 需要写权限，否则 action 无法推送到 gh-pages 分支（会以 exit code 128 失败）
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # 安装 Flutter（稳定版）
       - uses: subosito/flutter-action@v2
@@ -25,3 +28,5 @@ jobs:
         with:
           workingDir: mood_quiz
           baseHref: /mood_quiz/
+          # 把 CanvasKit 打包进产物，不从 gstatic CDN 拉取（部分网络环境下会白屏）
+          customArgs: --no-web-resources-cdn
