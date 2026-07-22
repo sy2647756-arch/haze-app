@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'data/diary_repository.dart';
+import 'pages/healing_page.dart';
 import 'pages/home_page.dart';
 import 'pages/report_page.dart';
 import 'widgets/app_bottom_nav.dart';
@@ -77,7 +78,7 @@ class _RootShellState extends State<RootShell> {
 
   late final List<Widget> _pages = [
     HomePage(key: _homeKey, repo: _repo, onOpenReport: () => _select(2)),
-    const _ComingSoonPage(title: 'Healing'),
+    const HealingPage(),
     ReportPage(key: _reportKey, repo: _repo),
     const _ComingSoonPage(title: 'My'),
   ];
