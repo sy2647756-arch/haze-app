@@ -71,6 +71,8 @@ flutter:
     - assets/home/
     - assets/healing/
     - assets/my/
+    - assets/meditation/
+    - assets/calm/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

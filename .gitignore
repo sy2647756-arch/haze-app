@@ -10,3 +10,8 @@
 
 # 本地工具配置
 /.claude/
+
+# 调试输出转储
+/_ctest.txt
+/_gtest.txt
+/_*.txt

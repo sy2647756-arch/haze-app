@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'calm_drawer_page.dart';
+import 'meditation_page.dart';
 
 /// Healing 主页，像素还原 Figma 70:1109。
 /// 2 列 × 3 行共 6 张功能卡（160×229）：插画 + 黄色标题药丸 + Intro。
@@ -78,11 +80,24 @@ class HealingPage extends StatelessWidget {
   Widget _card(BuildContext context, int i) {
     final (title, asset) = _items[i];
     return GestureDetector(
-      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('$title — coming soon'),
-            duration: const Duration(seconds: 1)),
-      ),
+      onTap: () {
+        // 已实现：0 = 2-min Meditation，1 = 12h Calm Drawer；其余 coming soon。
+        if (i == 0) {
+          Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MeditationPage()));
+          return;
+        }
+        if (i == 1) {
+          Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CalmDrawerPage()));
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('$title — coming soon'),
+              duration: const Duration(seconds: 1)),
+        );
+      },
       child: SizedBox(
         width: 160,
         height: 229,
