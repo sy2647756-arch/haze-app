@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../data/diary_repository.dart';
 import '../models/diary.dart';
 import '../models/weather.dart';
+import 'quiz_home_page.dart';
 import 'write_diary_page.dart';
 
 /// 首页「Weather mood」，像素还原 Figma 65:1060。设计画布 393×852。
@@ -44,12 +45,6 @@ class HomePageState extends State<HomePage> {
           WriteDiaryPage(repo: widget.repo, date: date, existing: existing),
     ));
     if (changed == true) reload();
-  }
-
-  void _comingSoon(String what) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$what — coming soon'), duration: const Duration(seconds: 1)),
-    );
   }
 
   @override
@@ -219,7 +214,8 @@ class HomePageState extends State<HomePage> {
           left: 25,
           top: 329,
           child: GestureDetector(
-            onTap: () => _comingSoon('Quiz'),
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const QuizHomePage())),
             child: Container(
               width: 80,
               height: 61,

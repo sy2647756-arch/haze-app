@@ -77,6 +77,7 @@ flutter:
     - assets/sub/
     - assets/cc/
     - assets/treehole/
+    - assets/quiz/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
