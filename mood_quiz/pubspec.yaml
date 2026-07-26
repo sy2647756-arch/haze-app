@@ -74,6 +74,7 @@ flutter:
     - assets/meditation/
     - assets/calm/
     - assets/sub/
+    - assets/cc/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

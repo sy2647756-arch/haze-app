@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'calm_drawer_page.dart';
+import 'cognitive_correction_page.dart';
 import 'meditation_page.dart';
 
 /// Healing 主页，像素还原 Figma 70:1109。
@@ -90,6 +91,11 @@ class HealingPage extends StatelessWidget {
         if (i == 1) {
           Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const CalmDrawerPage()));
+          return;
+        }
+        if (i == 2) {
+          Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const CognitiveCorrectionPage()));
           return;
         }
         ScaffoldMessenger.of(context).showSnackBar(
