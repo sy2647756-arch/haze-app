@@ -1,5 +1,13 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'quiz_questions_page.dart';
+
+/// 一道题：英文题干 + 3 个英文选项（A/B/C）。
+class QuizQuestion {
+  const QuizQuestion(this.text, this.options);
+  final String text;
+  final List<String> options;
+}
 
 /// 让内容区在 Web 上也能用鼠标拖动滚动。
 class _MouseDragScrollBehavior extends MaterialScrollBehavior {
@@ -18,12 +26,14 @@ class QuizIntroData {
     required this.goal,
     required this.research,
     required this.steps,
+    required this.questions,
   });
 
   final String title;
   final String goal;
   final String research;
   final List<String> steps;
+  final List<QuizQuestion> questions;
 
   /// Objective Check 下的三个子测试（文案来自 Figma）。
   static const chatCheck = QuizIntroData(
@@ -47,6 +57,31 @@ class QuizIntroData {
       'Receive tailored CBT groundings to ease your "left-on-read" anxiety and '
           'navigate your next text without the burden.',
     ],
+    questions: [
+      QuizQuestion('Who usually initiates the conversation?',
+          ['Mostly me', 'Roughly equal', 'Mostly them']),
+      QuizQuestion('How consistent is their reply frequency?', [
+        'Consistent daily',
+        'Random and unpredictable',
+        'Only late at night',
+      ]),
+      QuizQuestion('How does the length of your messages compare?',
+          ['I write much more', 'Balanced and matched', 'They write more']),
+      QuizQuestion('How often do they spontaneously share their daily life?',
+          ['Rarely or never', 'A few times a week', 'Daily sharing']),
+      QuizQuestion(
+          "How do you feel about sending a second text if they haven't replied?",
+          [
+            'Anxious, feeling like a bother',
+            'Neutral, just adding info',
+            'I never double-text',
+          ]),
+      QuizQuestion('How do you feel when a conversation ends?', [
+        'Left hanging and anxious',
+        'Peaceful and secure',
+        'Neutral, just normal',
+      ]),
+    ],
   );
 
   static const depthBoundaryRadar = QuizIntroData(
@@ -68,6 +103,33 @@ class QuizIntroData {
           'distance between you two.',
       'Gain actionable boundary tips to communicate your bottom line gracefully '
           'and stop over-compromising.',
+    ],
+    questions: [
+      QuizQuestion('What is the deepest level of your usual conversations?', [
+        'Surface level (hobbies, daily routine)',
+        'Personal values and past experiences',
+        'Deep fears and emotional vulnerabilities',
+      ]),
+      QuizQuestion('How do they react when you share negative emotions?', [
+        'Changes the subject or acts cold',
+        'Listens patiently and supports',
+        'I hide my negative feelings',
+      ]),
+      QuizQuestion('How do they react when you say "no" to something?', [
+        'Guilt-trips me or gets angry',
+        'Respects it easily',
+        "We haven't tested boundaries yet",
+      ]),
+      QuizQuestion('When there is a disagreement, who usually compromises?',
+          ['Always me', 'We meet in the middle', 'Mostly them']),
+      QuizQuestion('Do your conversations include planning for the future?',
+          ['Actively avoided', 'Mentioned naturally', 'Only I bring it up']),
+      QuizQuestion(
+          'What is your general energy level after interacting with them?', [
+        'Drained and exhausted',
+        'Recharged and happy',
+        'Confused and uncertain',
+      ]),
     ],
   );
 
@@ -91,6 +153,30 @@ class QuizIntroData {
           'their online words.',
       'Get practical insights to stop making excuses for them and make grounded '
           'decisions about your relationship.',
+    ],
+    questions: [
+      QuizQuestion(
+          'How is their initiative in actually meeting up in real life?', [
+        'All talk, no action',
+        'Proactive and reliable',
+        'I plan 100% of dates',
+      ]),
+      QuizQuestion('Are they willing to invest their "prime time" in you?', [
+        'Only leftover time or late nights',
+        'Dedicated weekend or holiday time',
+        'Fits my schedule',
+      ]),
+      QuizQuestion('How balanced is the effort and spending in real life?',
+          ['I invest way more', 'Balanced and mutual', 'They invest more']),
+      QuizQuestion('Have they introduced you to their real-life social circle?',
+          ['Complete secret', 'Introduced to friends', 'Too early to tell']),
+      QuizQuestion('How focused are they on you when you meet in person?', [
+        'Distracted, always on the phone',
+        'Fully present and listening',
+        'Only focused on physical intimacy',
+      ]),
+      QuizQuestion('How consistent are their words with their real-life actions?',
+          ['Contradictory', 'Highly consistent', 'Mixed signals']),
     ],
   );
 }
@@ -245,11 +331,8 @@ class _QuizIntroPageState extends State<QuizIntroPage> {
             left: 35,
             top: 772,
             child: GestureDetector(
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Quiz questions — coming soon'),
-                    duration: Duration(seconds: 1)),
-              ),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => QuizQuestionsPage(data: d))),
               child: Container(
                 width: 323,
                 height: 49,

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mood_quiz/pages/quiz_home_page.dart';
 import 'package:mood_quiz/pages/objective_check_page.dart';
 import 'package:mood_quiz/pages/quiz_intro_page.dart';
+import 'package:mood_quiz/pages/quiz_questions_page.dart';
 
 Future<void> _pump(WidgetTester tester, Widget page) async {
   tester.view.physicalSize = const Size(393, 852);
@@ -53,5 +54,38 @@ void main() {
     await tester.tap(find.byIcon(Icons.bookmark_border));
     await tester.pump();
     expect(find.byIcon(Icons.bookmark), findsOneWidget);
+  });
+
+  testWidgets('all 3 sections have 6 questions each with 3 options',
+      (tester) async {
+    for (final d in [
+      QuizIntroData.chatCheck,
+      QuizIntroData.depthBoundaryRadar,
+      QuizIntroData.realWorldSignal,
+    ]) {
+      expect(d.questions.length, 6);
+      for (final q in d.questions) {
+        expect(q.options.length, 3);
+      }
+    }
+  });
+
+  testWidgets('questions page: answering all 6 reaches completion',
+      (tester) async {
+    await _pump(tester,
+        const QuizQuestionsPage(data: QuizIntroData.chatCheck));
+
+    expect(find.text('Question 1 of 6'), findsOneWidget);
+    expect(find.text('Who usually initiates the conversation?'), findsOneWidget);
+
+    // 每题点第一个选项（A），共 6 题；每次有 180ms 高亮延时。
+    for (var i = 0; i < 6; i++) {
+      await tester.tap(find.text('A').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+
+    expect(find.textContaining("You've finished"), findsOneWidget);
+    expect(find.text('Done'), findsOneWidget);
   });
 }
