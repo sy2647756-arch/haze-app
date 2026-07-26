@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'calm_drawer_page.dart';
 import 'cognitive_correction_page.dart';
 import 'meditation_page.dart';
+import 'tree_hole_page.dart';
 
 /// Healing 主页，像素还原 Figma 70:1109。
 /// 2 列 × 3 行共 6 张功能卡（160×229）：插画 + 黄色标题药丸 + Intro。
@@ -96,6 +97,11 @@ class HealingPage extends StatelessWidget {
         if (i == 2) {
           Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => const CognitiveCorrectionPage()));
+          return;
+        }
+        if (i == 3) {
+          Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TreeHolePage()));
           return;
         }
         ScaffoldMessenger.of(context).showSnackBar(
