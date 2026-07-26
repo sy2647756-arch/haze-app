@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'data/coop_repository.dart';
 import 'data/diary_repository.dart';
+import 'data/supabase_config.dart';
+import 'data/supabase_diary_repository.dart';
 import 'pages/coop_result_page.dart';
 import 'pages/healing_page.dart';
 import 'pages/what_if_page.dart';
@@ -13,12 +16,37 @@ import 'widgets/app_bottom_nav.dart';
 /// 由顶层 [_PhoneFrame] 统一等比缩放，保证每一页大小一致。
 const double kFrameW = 393, kFrameH = 852;
 
-void main() {
-  runApp(const MoodQuizApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 默认本地存储；能连上 Supabase 就换成云端（并首次迁移本地日记）。
+  DiaryRepository repo = LocalDiaryRepository();
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      publishableKey: SupabaseConfig.anonKey,
+    );
+    final auth = Supabase.instance.client.auth;
+    if (auth.currentSession == null) {
+      await auth.signInAnonymously().timeout(const Duration(seconds: 12));
+    }
+    if (auth.currentSession != null) {
+      final cloud = SupabaseDiaryRepository();
+      await migrateLocalDiariesIfNeeded(cloud);
+      repo = cloud;
+    }
+  } catch (e) {
+    // 连不上 Supabase（网络/被墙/未配置）→ 回退本地，App 照常可用。
+    debugPrint('Supabase unavailable, falling back to local storage: $e');
+  }
+
+  runApp(MoodQuizApp(repo: repo));
 }
 
 class MoodQuizApp extends StatelessWidget {
-  const MoodQuizApp({super.key});
+  const MoodQuizApp({super.key, required this.repo});
+
+  final DiaryRepository repo;
 
   /// 从启动 URL 的哈希取出某个路由的 `d` 参数（形如 "/coop?d=xxxx"）。
   static String? _fragData(String route) {
@@ -44,7 +72,7 @@ class MoodQuizApp extends StatelessWidget {
       final p = CoopPayload.decode(coop);
       if (p != null) return InvitedQuizFlow(payload: p);
     }
-    return const RootShell();
+    return RootShell(repo: repo);
   }
 
   @override
@@ -94,14 +122,16 @@ class _PhoneFrame extends StatelessWidget {
 
 /// 底部 4 Tab 骨架：Weather mood / Healing / Report / My。
 class RootShell extends StatefulWidget {
-  const RootShell({super.key});
+  const RootShell({super.key, required this.repo});
+
+  final DiaryRepository repo;
 
   @override
   State<RootShell> createState() => _RootShellState();
 }
 
 class _RootShellState extends State<RootShell> {
-  final DiaryRepository _repo = LocalDiaryRepository();
+  DiaryRepository get _repo => widget.repo;
   int _index = 0;
 
   final _homeKey = GlobalKey<HomePageState>();
