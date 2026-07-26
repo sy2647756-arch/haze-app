@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'sub_page.dart';
 
 /// My 页，像素还原 Figma 70:1234。
 /// 头像 + VIP + 昵称 + 心情签名 + 徽章条 + Privacy/Notifications/Setting 菜单。
@@ -61,23 +62,27 @@ class MyPage extends StatelessWidget {
             ),
           ),
         ),
-        // VIP 徽标
+        // VIP 徽标（点击进入订阅页）
         Positioned(
           left: 210,
           top: 173,
-          child: Container(
-            width: 64,
-            height: 26,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: const Color(0xFFC640A3),
-              borderRadius: BorderRadius.circular(14),
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SubPage())),
+            child: Container(
+              width: 64,
+              height: 26,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFFC640A3),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Text('VIP',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFFFE229))),
             ),
-            child: const Text('VIP',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFFFE229))),
           ),
         ),
         // 昵称
