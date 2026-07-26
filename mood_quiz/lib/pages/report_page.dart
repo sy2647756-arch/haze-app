@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../data/auth_service.dart';
 import '../data/diary_repository.dart';
 import '../models/diary.dart';
 import 'mood_chart_page.dart';
@@ -46,6 +47,12 @@ class ReportPageState extends State<ReportPage> {
       _byDate = {for (final d in all) d.dateKey: d};
       _loading = false;
     });
+    // 软提示：进入 Report 且还是匿名 → 引导绑定 Google（见决策文档 §2）。
+    if (AuthService.isAnonymous) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) AuthService.maybePromptBinding(context);
+      });
+    }
   }
 
   Diary? _on(DateTime d) => _byDate[Diary.keyOf(d)];

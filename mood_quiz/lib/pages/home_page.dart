@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../data/auth_service.dart';
 import '../data/diary_repository.dart';
 import '../models/diary.dart';
 import '../models/weather.dart';
@@ -44,7 +45,16 @@ class HomePageState extends State<HomePage> {
       builder: (_) =>
           WriteDiaryPage(repo: widget.repo, date: date, existing: existing),
     ));
-    if (changed == true) reload();
+    if (changed == true) {
+      reload();
+      // 软提示：写满第 3 篇且还是匿名 → 引导绑定 Google（见决策文档 §2）。
+      if (AuthService.isAnonymous) {
+        final all = await widget.repo.getAll();
+        if (all.length >= 3 && mounted) {
+          AuthService.maybePromptBinding(context);
+        }
+      }
+    }
   }
 
   @override

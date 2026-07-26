@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../data/auth_service.dart';
 import 'sub_page.dart';
 
 /// My 页，像素还原 Figma 70:1234。
@@ -179,6 +180,71 @@ class MyPage extends StatelessWidget {
     );
   }
 
+  /// 账户行：显示登录状态，匿名时点了绑定 Google。
+  Widget _accountRow(BuildContext context) {
+    final bound = AuthService.isBound;
+    final anon = AuthService.isAnonymous;
+    final label = bound ? 'Account' : 'Sign in with Google';
+    final trailing =
+        bound ? (AuthService.email ?? 'Signed in') : (anon ? 'Connect' : 'Offline');
+    return SizedBox(
+      height: 46.74,
+      child: InkWell(
+        onTap: () async {
+          if (bound) return;
+          if (!anon) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Cloud not connected — working offline.'),
+                duration: Duration(seconds: 2)));
+            return;
+          }
+          try {
+            await AuthService.linkGoogle(); // Web 会整页跳转到 Google
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text("Couldn't start Google sign-in. Try again."),
+                  duration: Duration(seconds: 2)));
+            }
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 19),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black)),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                flex: 2,
+                child: Text(trailing,
+                    maxLines: 1,
+                    textAlign: TextAlign.right,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: bound
+                            ? const Color(0xFFC640A3)
+                            : Colors.black.withValues(alpha: 0.4))),
+              ),
+              if (!bound)
+                Icon(Icons.chevron_right,
+                    size: 19, color: Colors.black.withValues(alpha: 0.35)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _menuCard(BuildContext context) {
     return Positioned(
       left: 26,
@@ -192,6 +258,14 @@ class MyPage extends StatelessWidget {
         ),
         child: Column(
           children: [
+            _accountRow(context),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 9.5),
+              child: Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Colors.black.withValues(alpha: 0.06)),
+            ),
             for (var i = 0; i < _menu.length; i++) ...[
               SizedBox(
                 height: 46.74,
