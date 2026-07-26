@@ -6,8 +6,12 @@ import 'quiz_intro_page.dart';
 /// 头部进度条 + 层叠题目卡（"Question X of 6" + 英文题干）+ 三个 A/B/C 选项卡。
 /// Figma 原设计的答题区是"选人（Maddy/Reyn）"样式，本页按需求改为 A/B/C 选项。
 class QuizQuestionsPage extends StatefulWidget {
-  const QuizQuestionsPage({super.key, required this.data});
+  const QuizQuestionsPage({super.key, required this.data, this.onComplete});
   final QuizIntroData data;
+
+  /// 若提供：答完最后一题时回调答案下标列表，跳过内置完成页
+  /// （Co-op 用它接「等待/结果」流程）。
+  final void Function(List<int> answers)? onComplete;
 
   @override
   State<QuizQuestionsPage> createState() => _QuizQuestionsPageState();
@@ -33,15 +37,20 @@ class _QuizQuestionsPageState extends State<QuizQuestionsPage> {
     // 短暂高亮后进入下一题。
     Timer(const Duration(milliseconds: 180), () {
       if (!mounted) return;
-      setState(() {
-        _answers.add(i);
-        if (_index >= _questions.length - 1) {
-          _done = true;
+      _answers.add(i);
+      if (_index >= _questions.length - 1) {
+        final cb = widget.onComplete;
+        if (cb != null) {
+          cb(_answers);
         } else {
+          setState(() => _done = true);
+        }
+      } else {
+        setState(() {
           _index++;
           _picked = null;
-        }
-      });
+        });
+      }
     });
   }
 

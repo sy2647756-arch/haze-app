@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'data/coop_repository.dart';
 import 'data/diary_repository.dart';
+import 'pages/coop_result_page.dart';
 import 'pages/healing_page.dart';
 import 'pages/home_page.dart';
 import 'pages/my_page.dart';
@@ -17,8 +19,21 @@ void main() {
 class MoodQuizApp extends StatelessWidget {
   const MoodQuizApp({super.key});
 
+  /// 解析启动 URL：若是 Co-op 邀请链接（#/coop?d=...）则进被邀请者流程。
+  CoopPayload? _invitePayload() {
+    final frag = Uri.base.fragment; // 形如 "/coop?d=xxxx"
+    if (!frag.contains('coop')) return null;
+    final qi = frag.indexOf('?');
+    if (qi < 0) return null;
+    final params = Uri.splitQueryString(frag.substring(qi + 1));
+    final d = params['d'];
+    if (d == null) return null;
+    return CoopPayload.decode(d);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final invite = _invitePayload();
     return MaterialApp(
       title: 'Mood Quiz',
       debugShowCheckedModeBanner: false,
@@ -28,7 +43,7 @@ class MoodQuizApp extends StatelessWidget {
       ),
       // 关键：把每一个路由（含 push 出来的写日记页）都包进统一画框。
       builder: (context, child) => _PhoneFrame(child: child ?? const SizedBox()),
-      home: const RootShell(),
+      home: invite != null ? InvitedQuizFlow(payload: invite) : const RootShell(),
     );
   }
 }

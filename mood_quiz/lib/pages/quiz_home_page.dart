@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'objective_check_page.dart';
+import 'quiz_intro_page.dart';
 
 /// Quiz 首页（Figma 8:2212 Solo / 8:2246 Co-op）。
 /// 两个 Tab 的画面为像素级还原的整帧底图；点 Solo/Co-op 切换底图，
@@ -44,7 +45,9 @@ class _QuizHomePageState extends State<QuizHomePage> {
               Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => const ObjectiveCheckPage()));
             } else {
-              _comingSoon('Preferences & Habits');
+              Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const QuizIntroPage(
+                      data: QuizIntroData.preferencesHabits)));
             }
           }),
           _tap(40, 560, 315, 140, () {

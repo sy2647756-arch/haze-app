@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'coop_result_page.dart';
 import 'quiz_questions_page.dart';
 
 /// 一道题：英文题干 + 3 个英文选项（A/B/C）。
@@ -27,6 +28,9 @@ class QuizIntroData {
     required this.research,
     required this.steps,
     required this.questions,
+    this.breadcrumb = 'Objective Check',
+    this.isCoop = false,
+    this.sectionId = '',
   });
 
   final String title;
@@ -34,6 +38,15 @@ class QuizIntroData {
   final String research;
   final List<String> steps;
   final List<QuizQuestion> questions;
+
+  /// 顶部面包屑：Solo 为 'Objective Check'，Co-op 为 'Co-op Quiz'。
+  final String breadcrumb;
+
+  /// 是否 Co-op（双人分享匹配）板块。
+  final bool isCoop;
+
+  /// Co-op 板块 id（编码进分享链接），如 'ph'。
+  final String sectionId;
 
   /// Objective Check 下的三个子测试（文案来自 Figma）。
   static const chatCheck = QuizIntroData(
@@ -179,6 +192,71 @@ class QuizIntroData {
           ['Contradictory', 'Highly consistent', 'Mixed signals']),
     ],
   );
+
+  /// Co-op：Preferences & Habits（文案来自 Figma 8:1045；6 题来自需求）。
+  static const preferencesHabits = QuizIntroData(
+    breadcrumb: 'Co-op Quiz',
+    isCoop: true,
+    sectionId: 'ph',
+    title: 'Preferences & Habits',
+    goal:
+        'Map out your dating communication styles, conflict triggers, and '
+        'boundaries early on to prevent future misunderstandings and friction.',
+    research:
+        'Relationship psychology shows that early friction often comes from '
+        'mismatched lifestyle habits and unexpressed needs, rather than a lack '
+        'of affection. By openly comparing your communication frequency, social '
+        'battery limits, and conflict resolution styles in a gamified setting, '
+        'you eliminate guesswork. This transparent groundwork builds mutual '
+        'understanding and a safer emotional connection.',
+    steps: [
+      'Answer 6 concise questions about your texting frequency, recharge habits, '
+          'and boundaries.',
+      'Compare your results in real-time to spot where your default relationship '
+          'styles align or differ.',
+      "Get tailored Co-op insights to understand each other's emotional bottom "
+          'lines and navigate future disagreements smoothly.',
+    ],
+    questions: [
+      QuizQuestion('What is your ideal texting frequency throughout the day?', [
+        'Constant updates and all-day chatting',
+        'Regular check-ins, but space for work/life',
+        'Low frequency, prefer quality talks or in-person',
+      ]),
+      QuizQuestion('When an argument occurs, how do you prefer to handle it?', [
+        "Resolve it immediately; I can't sleep angry",
+        'Take a quiet break first, then talk calmly',
+        'Let it slide naturally and forget about it',
+      ]),
+      QuizQuestion(
+          'How do you usually recharge after a stressful, tiring week?', [
+        'Solo cave time (gaming, reading, sleeping)',
+        'Quality time or venting with my partner',
+        'Going out and socializing with friends',
+      ]),
+      QuizQuestion('Which gesture makes you feel most loved and secure?', [
+        'Words of affirmation and frequent praise',
+        'Quality time and attentive listening',
+        'Physical touch or thoughtful gifts',
+      ]),
+      QuizQuestion(
+          'What is your boundary regarding staying in touch with exes or '
+          'casual opposite-sex friends?',
+          [
+            'Strict distance; total transparency is needed',
+            'Normal socializing is fine if boundaries are clear',
+            "Very relaxed; I don't interfere with their circle",
+          ]),
+      QuizQuestion(
+          'When you are feeling low or anxious, what do you need most from your '
+          'partner?',
+          [
+            'Just listen and give me a hug; no logic needed',
+            'Help me analyze the problem and find solutions',
+            'Leave me alone to process it independently',
+          ]),
+    ],
+  );
 }
 
 /// Quiz 子测试介绍页（Figma 8:1013 chatcheck overall 等，三页共用模板）。
@@ -224,12 +302,23 @@ class _QuizIntroPageState extends State<QuizIntroPage> {
           ),
           // 收藏
           Positioned(
-            left: 325,
+            left: d.isCoop ? 283 : 325,
             top: 59,
             child: _circleBtn(
                 _bookmarked ? Icons.bookmark : Icons.bookmark_border,
                 () => setState(() => _bookmarked = !_bookmarked)),
           ),
+          // Co-op：邀请图标
+          if (d.isCoop)
+            Positioned(
+              left: 325,
+              top: 59,
+              child: _circleBtn(Icons.person_add_alt_1_outlined, () {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Finish the quiz to invite your partner'),
+                    duration: Duration(seconds: 1)));
+              }),
+            ),
           // 面包屑
           Positioned(
             left: 25,
@@ -241,8 +330,8 @@ class _QuizIntroPageState extends State<QuizIntroPage> {
               decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(6)),
-              child: const Text('Objective Check',
-                  style: TextStyle(
+              child: Text(d.breadcrumb,
+                  style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: _titleColor)),
@@ -332,7 +421,14 @@ class _QuizIntroPageState extends State<QuizIntroPage> {
             top: 772,
             child: GestureDetector(
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => QuizQuestionsPage(data: d))),
+                  builder: (_) => d.isCoop
+                      ? QuizQuestionsPage(
+                          data: d,
+                          onComplete: (answers) => Navigator.of(context)
+                              .pushReplacement(MaterialPageRoute(
+                                  builder: (_) => CoopResultPage.initiator(
+                                      data: d, myAnswers: answers))))
+                      : QuizQuestionsPage(data: d))),
               child: Container(
                 width: 323,
                 height: 49,
