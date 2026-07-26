@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'calm_drawer_page.dart';
 import 'cognitive_correction_page.dart';
+import 'counseling_page.dart';
 import 'meditation_page.dart';
 import 'tree_hole_page.dart';
 
@@ -102,6 +103,11 @@ class HealingPage extends StatelessWidget {
         if (i == 3) {
           Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const TreeHolePage()));
+          return;
+        }
+        if (i == 5) {
+          Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CounselingPage()));
           return;
         }
         ScaffoldMessenger.of(context).showSnackBar(
