@@ -216,27 +216,39 @@ class _CoopResultPageState extends State<CoopResultPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _star('assets/quiz/star_you.png', _myName ?? 'You'),
+        _star('assets/quiz/star_you.png', 'assets/treehole/avatar_ai.png',
+            _myName ?? 'You'),
         _star('assets/quiz/star_partner.png',
-            widget.partnerName ?? 'Waiting…'),
+            'assets/treehole/avatar_user.png', widget.partnerName ?? 'Waiting…'),
       ],
     );
   }
 
-  Widget _star(String asset, String name) {
+  Widget _star(String starAsset, String iconAsset, String name) {
     return Column(
       children: [
-        Image.asset(asset,
+        Image.asset(starAsset,
             width: 118,
             height: 118,
             fit: BoxFit.contain,
             errorBuilder: (_, _, _) => const SizedBox(width: 118, height: 118)),
         const SizedBox(height: 4),
-        Text(name,
-            style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: _titleColor)),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(iconAsset,
+                width: 20,
+                height: 20,
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => const SizedBox(width: 20)),
+            const SizedBox(width: 5),
+            Text(name,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _titleColor)),
+          ],
+        ),
       ],
     );
   }

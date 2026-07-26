@@ -193,6 +193,189 @@ class QuizIntroData {
     ],
   );
 
+  // ===== Cognitive Bias Test（Solo 第二类）三个子测试 =====
+
+  static const leftOnRead = QuizIntroData(
+    breadcrumb: 'Cognitive Bias Test',
+    title: 'The "Left-on-Read" Stress Test',
+    goal:
+        'Measure your emotional resilience and anxiety levels when facing '
+        'delayed replies, helping you regain control over your attention.',
+    research:
+        'Cognitive Behavioral Therapy (CBT) reveals that being "left on read" '
+        "triggers our brain's attachment panic and rejection sensitivity. When "
+        'waiting for a text, our minds often invent worst-case scenarios, '
+        'leading to hyper-vigilance and exhausting internal dialogue. By '
+        'recognizing these automatic anxiety loops, you can stop taking delayed '
+        'replies personally and self-soothe without compulsive checking.',
+    steps: [
+      'Answer 6 concise questions about your immediate reactions, thoughts, and '
+          'sleep impacts when waiting for a reply.',
+      'Evaluate your stress tolerance and uncover the hidden anxiety patterns '
+          'behind your urge to double-text.',
+      'Unlock CBT grounding tools like the 12h Calm Drawer to quiet your racing '
+          'mind and protect your emotional peace.',
+    ],
+    questions: [
+      QuizQuestion(
+          'How do you react within the first hour of being left on read?', [
+        'Panic and check phone constantly',
+        'Notice it, but focus on my own tasks',
+        "Don't really care or notice",
+      ]),
+      QuizQuestion('What is your biggest emotion when waiting for a reply?', [
+        'Anxiety and fear of abandonment',
+        'Calmness and patience',
+        'Irritation and anger',
+      ]),
+      QuizQuestion(
+          "What story do you tell yourself when they don't reply for hours?", [
+        '"I must have said something wrong."',
+        '"They must be busy with work or life."',
+        '"They are playing mind games with me."',
+      ]),
+      QuizQuestion('What do you feel an urge to do after 4 hours of silence?', [
+        'Send a follow-up text to check in',
+        'Put phone away and wait naturally',
+        'Delete the chat or unsend the message',
+      ]),
+      QuizQuestion('How does an unanswered text affect your sleep at night?', [
+        'I stay up late overthinking',
+        'I sleep normally',
+        'I wake up early just to check phone',
+      ]),
+      QuizQuestion('How do you feel when they finally reply with a valid excuse?',
+          [
+            'Instant relief, but drained from anxiety',
+            'Glad to hear from them, totally fine',
+            'Still secretly resentful about the delay',
+          ]),
+    ],
+  );
+
+  static const mindReading = QuizIntroData(
+    breadcrumb: 'Cognitive Bias Test',
+    title: 'Mind-Reading Filter Analysis',
+    goal:
+        'Identify and clear the subjective filters that cause you to '
+        'over-analyze tones, emojis, and hidden meanings in communication.',
+    research:
+        'In cognitive psychology, "mind-reading" is a distortion where we assume '
+        "we know someone else's intentions without direct facts. When "
+        'vulnerable, we project our internal insecurities onto their short '
+        'replies or silence, often mistaking a neutral tone for coldness or '
+        'rejection. Recognizing these cognitive filters allows you to separate '
+        'subjective imagination from reality, instantly reducing emotional '
+        'overthinking.',
+    steps: [
+      'Answer 6 concise questions about how you interpret punctuation, emojis, '
+          'and social media activity.',
+      'Detect cognitive distortions like catastrophic thinking or blaming '
+          'yourself for their mood changes.',
+      'Receive CBT reframing tips to replace anxious guesswork with clear, '
+          'objective communication.',
+    ],
+    questions: [
+      QuizQuestion(
+          'How do you interpret a short text like "Okay." with a period?', [
+        'They are cold and mad at me',
+        'Just a normal, neutral confirmation',
+        'They are being passive-aggressive',
+      ]),
+      QuizQuestion('What do you think when they stop using emojis in a chat?', [
+        'They are losing interest in me',
+        'They are probably just tired or in a hurry',
+        'They are testing my reaction',
+      ]),
+      QuizQuestion(
+          'Do you assume you know why they do or say certain things?', [
+        'Yes, and I usually assume the worst',
+        'No, I prefer to ask directly or look at facts',
+        'Sometimes, depending on my mood',
+      ]),
+      QuizQuestion(
+          "How do you react to their social media activity if they haven't "
+          'texted you?',
+          [
+            'Feel hurt and over-analyze their motives',
+            'Understand social media is just casual scrolling',
+            'Immediately confront them or post something to retaliate',
+          ]),
+      QuizQuestion('When their mood seems down, what is your first thought?', [
+        '"It\'s definitely my fault."',
+        '"They might have had a stressful day."',
+        '"They are being difficult on purpose."',
+      ]),
+      QuizQuestion(
+          'How do you view a minor disagreement in the relationship?', [
+        '"We are incompatible; it\'s doomed."',
+        '"It\'s a normal hurdle we can solve together."',
+        '"They must change, or I\'m leaving."',
+      ]),
+    ],
+  );
+
+  static const selfWorth = QuizIntroData(
+    breadcrumb: 'Cognitive Bias Test',
+    title: 'Self-Worth Detachment Profile',
+    goal:
+        'Evaluate how much your self-esteem relies on their approval, helping '
+        'you detach your personal value from relationship ups and downs.',
+    research:
+        'Attachment theory shows that enmeshment occurs when our self-worth '
+        "becomes entirely entangled with a partner's attention or validation. "
+        'This leads to chronic people-pleasing, boundary surrender, and severe '
+        'emotional swings based on their daily mood. Building emotional '
+        'detachment does not mean loving less; it creates a secure internal '
+        'foundation where you remain confident and whole, regardless of '
+        'external dynamics.',
+    steps: [
+      'Answer 6 concise questions about your mood dependency, rejection '
+          'sensitivity, and people-pleasing habits.',
+      'Map your emotional independence to see if you are sacrificing your '
+          'personal identity to keep them happy.',
+      'Unlock empowerment strategies to reclaim your self-worth and anchor your '
+          'happiness within yourself.',
+    ],
+    questions: [
+      QuizQuestion('How much does their attention dictate your daily mood?', [
+        '100%, my happiness depends on them',
+        'Minimal, I generate my own happiness',
+        'Roughly half, it affects me somewhat',
+      ]),
+      QuizQuestion(
+          'How do you feel about yourself if they reject an invitation?', [
+        'I feel worthless and unlovable',
+        'I feel disappointed, but my self-worth is intact',
+        'I feel embarrassed and swear never to ask again',
+      ]),
+      QuizQuestion(
+          'How often do you suppress your true needs to keep them happy?', [
+        'Constantly, I fear losing them',
+        'Never, I express my needs assertively',
+        'Occasionally, when I want to avoid conflict',
+      ]),
+      QuizQuestion(
+          'How active is your personal life (hobbies, friends) outside this '
+          'relationship?',
+          [
+            'Neglected, I revolve around them',
+            'Thriving and independent',
+            'Moderate, I balance both relatively well',
+          ]),
+      QuizQuestion('Where do you get your primary sense of validation?', [
+        'From their compliments and approval',
+        'From my own achievements and self-love',
+        "From external status and others' envy",
+      ]),
+      QuizQuestion('Who is responsible for managing your emotional anxiety?', [
+        'They are; they need to reassure me constantly',
+        'I am; I use tools and grounding to self-soothe',
+        'Fate; it depends on how the relationship goes',
+      ]),
+    ],
+  );
+
   /// Co-op：Preferences & Habits（文案来自 Figma 8:1045；6 题来自需求）。
   static const preferencesHabits = QuizIntroData(
     breadcrumb: 'Co-op Quiz',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mood_quiz/pages/quiz_home_page.dart';
 import 'package:mood_quiz/pages/objective_check_page.dart';
+import 'package:mood_quiz/pages/cognitive_bias_page.dart';
 import 'package:mood_quiz/pages/quiz_intro_page.dart';
 import 'package:mood_quiz/pages/quiz_questions_page.dart';
 
@@ -56,18 +57,31 @@ void main() {
     expect(find.byIcon(Icons.bookmark), findsOneWidget);
   });
 
-  testWidgets('all 3 sections have 6 questions each with 3 options',
+  testWidgets('all sections have 6 questions each with 3 options',
       (tester) async {
     for (final d in [
       QuizIntroData.chatCheck,
       QuizIntroData.depthBoundaryRadar,
       QuizIntroData.realWorldSignal,
+      QuizIntroData.leftOnRead,
+      QuizIntroData.mindReading,
+      QuizIntroData.selfWorth,
+      QuizIntroData.preferencesHabits,
     ]) {
-      expect(d.questions.length, 6);
+      expect(d.questions.length, 6, reason: d.title);
       for (final q in d.questions) {
-        expect(q.options.length, 3);
+        expect(q.options.length, 3, reason: '${d.title} / ${q.text}');
       }
     }
+  });
+
+  testWidgets('cognitive bias list opens a sub-test intro', (tester) async {
+    await _pump(tester, const CognitiveBiasPage());
+    await tester.tapAt(const Offset(196, 240)); // 第一张卡 Left-on-Read
+    await tester.pumpAndSettle();
+    expect(find.byType(QuizIntroPage), findsOneWidget);
+    expect(find.text('The "Left-on-Read" Stress Test'), findsOneWidget);
+    expect(find.text('Cognitive Bias Test'), findsOneWidget); // breadcrumb
   });
 
   testWidgets('questions page: answering all 6 reaches completion',

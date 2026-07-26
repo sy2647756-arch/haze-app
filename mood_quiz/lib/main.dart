@@ -3,6 +3,7 @@ import 'data/coop_repository.dart';
 import 'data/diary_repository.dart';
 import 'pages/coop_result_page.dart';
 import 'pages/healing_page.dart';
+import 'pages/what_if_page.dart';
 import 'pages/home_page.dart';
 import 'pages/my_page.dart';
 import 'pages/report_page.dart';
@@ -19,21 +20,35 @@ void main() {
 class MoodQuizApp extends StatelessWidget {
   const MoodQuizApp({super.key});
 
-  /// 解析启动 URL：若是 Co-op 邀请链接（#/coop?d=...）则进被邀请者流程。
-  CoopPayload? _invitePayload() {
-    final frag = Uri.base.fragment; // 形如 "/coop?d=xxxx"
-    if (!frag.contains('coop')) return null;
+  /// 从启动 URL 的哈希取出某个路由的 `d` 参数（形如 "/coop?d=xxxx"）。
+  static String? _fragData(String route) {
+    final frag = Uri.base.fragment;
+    if (!frag.contains(route)) return null;
     final qi = frag.indexOf('?');
     if (qi < 0) return null;
-    final params = Uri.splitQueryString(frag.substring(qi + 1));
-    final d = params['d'];
-    if (d == null) return null;
-    return CoopPayload.decode(d);
+    return Uri.splitQueryString(frag.substring(qi + 1))['d'];
+  }
+
+  /// 决定首屏：What-If 留言链接 / Co-op 邀请链接 / 正常首页。
+  Widget _home() {
+    final wif = _fragData('whatif');
+    if (wif != null) {
+      final p = WhatIfPayload.decode(wif);
+      final s = p == null ? null : WhatIfScenario.byId(p.scenario);
+      if (p != null && s != null) {
+        return WhatIfPage(scenario: s, invited: true, initialMessages: p.messages);
+      }
+    }
+    final coop = _fragData('coop');
+    if (coop != null) {
+      final p = CoopPayload.decode(coop);
+      if (p != null) return InvitedQuizFlow(payload: p);
+    }
+    return const RootShell();
   }
 
   @override
   Widget build(BuildContext context) {
-    final invite = _invitePayload();
     return MaterialApp(
       title: 'Mood Quiz',
       debugShowCheckedModeBanner: false,
@@ -43,7 +58,7 @@ class MoodQuizApp extends StatelessWidget {
       ),
       // 关键：把每一个路由（含 push 出来的写日记页）都包进统一画框。
       builder: (context, child) => _PhoneFrame(child: child ?? const SizedBox()),
-      home: invite != null ? InvitedQuizFlow(payload: invite) : const RootShell(),
+      home: _home(),
     );
   }
 }

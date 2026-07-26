@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'cognitive_bias_page.dart';
 import 'objective_check_page.dart';
 import 'quiz_intro_page.dart';
+import 'what_if_page.dart';
 
 /// Quiz 首页（Figma 8:2212 Solo / 8:2246 Co-op）。
 /// 两个 Tab 的画面为像素级还原的整帧底图；点 Solo/Co-op 切换底图，
@@ -14,12 +16,6 @@ class QuizHomePage extends StatefulWidget {
 
 class _QuizHomePageState extends State<QuizHomePage> {
   bool _solo = true;
-
-  void _comingSoon(String what) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$what — coming soon'), duration: const Duration(seconds: 1)),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +47,13 @@ class _QuizHomePageState extends State<QuizHomePage> {
             }
           }),
           _tap(40, 560, 315, 140, () {
-            _comingSoon(_solo ? 'Cognitive Bias Test' : 'What-If Scenarios');
+            if (_solo) {
+              Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const CognitiveBiasPage()));
+            } else {
+              Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const WhatIfListPage()));
+            }
           }),
         ],
       ),
