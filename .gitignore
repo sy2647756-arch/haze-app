@@ -1,17 +1,45 @@
-# 只发布 Flutter 应用 (mood_quiz/) + 设计决策记录 (v1_设计决策记录.md)。
-# 以下一律不入库：
-
-# 根目录截图 / 设计原图 / 文档 / 日志
+# Repository-level design exports and local notes
 /*.png
 /*.jpg
 /*.docx
 /*.log
 /picture/
-
-# 本地工具配置
 /.claude/
-
-# 调试输出转储
 /_ctest.txt
 /_gtest.txt
 /_*.txt
+
+# Flutter and Dart generated files
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/.pub/
+**/.pub-cache/
+**/build/
+**/coverage/
+**/doc/api/
+
+# Platform-generated files
+**/.gradle/
+**/android/local.properties
+**/android/key.properties
+*.jks
+**/ios/Pods/
+**/ios/Flutter/ephemeral/
+**/ios/Flutter/.last_build_id
+**/macos/Flutter/ephemeral/
+**/windows/flutter/generated_plugin_registrant.cc
+**/windows/flutter/generated_plugin_registrant.h
+**/windows/flutter/generated_plugins.cmake
+**/linux/flutter/generated_plugin_registrant.cc
+**/linux/flutter/generated_plugin_registrant.h
+**/linux/flutter/generated_plugins.cmake
+
+# Editor and OS files
+.DS_Store
+*.class
+*.log
+*.pyc
+*.swp
+.idea/
