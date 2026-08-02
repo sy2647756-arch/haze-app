@@ -17,26 +17,39 @@ abstract class CoopRepository {
 
 /// 编码进分享链接的载荷：板块 + 发起者名字 + 发起者的答案下标。
 class CoopPayload {
-  const CoopPayload(
-      {required this.section, required this.name, required this.answers});
+  const CoopPayload({
+    required this.section,
+    required this.name,
+    required this.answers,
+    this.sessionToken,
+  });
 
   final String section; // 板块 id，如 'ph'
   final String name; // 发起者显示名
   final List<int> answers; // 每题所选选项下标
 
+  final String? sessionToken;
+
   String encode() {
-    final json = jsonEncode({'s': section, 'n': name, 'a': answers});
+    final json = jsonEncode({
+      's': section,
+      'n': name,
+      'a': answers,
+      if (sessionToken != null) 'x': sessionToken,
+    });
     return base64Url.encode(utf8.encode(json));
   }
 
   static CoopPayload? decode(String data) {
     try {
       final json =
-          jsonDecode(utf8.decode(base64Url.decode(data))) as Map<String, dynamic>;
+          jsonDecode(utf8.decode(base64Url.decode(data)))
+              as Map<String, dynamic>;
       return CoopPayload(
         section: json['s'] as String,
         name: (json['n'] as String?) ?? '',
         answers: (json['a'] as List).map((e) => e as int).toList(),
+        sessionToken: json['x'] as String?,
       );
     } catch (_) {
       return null;
@@ -73,20 +86,20 @@ class CoopResult {
   int get percent => total == 0 ? 0 : (matchCount * 100 / total).round();
 
   Map<String, dynamic> toJson() => {
-        's': section,
-        'mn': myName,
-        'ma': myAnswers,
-        'pn': partnerName,
-        'pa': partnerAnswers,
-      };
+    's': section,
+    'mn': myName,
+    'ma': myAnswers,
+    'pn': partnerName,
+    'pa': partnerAnswers,
+  };
 
   factory CoopResult.fromJson(Map<String, dynamic> j) => CoopResult(
-        section: j['s'] as String,
-        myName: j['mn'] as String,
-        myAnswers: (j['ma'] as List).map((e) => e as int).toList(),
-        partnerName: j['pn'] as String,
-        partnerAnswers: (j['pa'] as List).map((e) => e as int).toList(),
-      );
+    section: j['s'] as String,
+    myName: j['mn'] as String,
+    myAnswers: (j['ma'] as List).map((e) => e as int).toList(),
+    partnerName: j['pn'] as String,
+    partnerAnswers: (j['pa'] as List).map((e) => e as int).toList(),
+  );
 }
 
 /// v1 实现：名字与结果存 shared_preferences；链接靠 [CoopPayload] 自带答案。

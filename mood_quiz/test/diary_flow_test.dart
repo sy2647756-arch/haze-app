@@ -16,7 +16,10 @@ void main() {
     });
     test('6 days ago is writable, 7 days ago is not', () {
       expect(isWritable(now.subtract(const Duration(days: 6)), now: now), true);
-      expect(isWritable(now.subtract(const Duration(days: 7)), now: now), false);
+      expect(
+        isWritable(now.subtract(const Duration(days: 7)), now: now),
+        false,
+      );
     });
     test('future is not writable', () {
       expect(isWritable(now.add(const Duration(days: 1)), now: now), false);
@@ -41,31 +44,59 @@ void main() {
       expect(Weather.stormy.score, 1);
       expect(Weather.breezy.score, 5);
       expect(Weather.bright.score, 7);
-      final d = Diary(date: DateTime(2026, 7, 1), weather: Weather.gloomy, content: '');
+      final d = Diary(
+        date: DateTime(2026, 7, 1),
+        weather: Weather.gloomy,
+        content: '',
+      );
       expect(d.moodScore, 3);
     });
   });
 
-  testWidgets('Home defaults to Great, reflects today entry after write',
-      (tester) async {
+  testWidgets('Home defaults to Great, reflects today entry after write', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(393, 852);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
 
     final repo = LocalDiaryRepository();
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: HomePage(repo: repo))));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: HomePage(repo: repo)),
+      ),
+    );
     await tester.pumpAndSettle();
 
     // 未选择今日心情 → 显示 Great
     expect(find.text("Today's Mood: Great"), findsOneWidget);
 
     // 写入今天，reload 后反映当日心情
-    await repo.upsert(Diary(
-        date: DateTime.now(), weather: Weather.sunny, content: 'Good day'));
+    await repo.upsert(
+      Diary(date: DateTime.now(), weather: Weather.sunny, content: 'Good day'),
+    );
     final state = tester.state<HomePageState>(find.byType(HomePage));
     await state.reload();
     await tester.pumpAndSettle();
 
     expect(find.text("Today's Mood: Sunny"), findsOneWidget);
+    expect(find.text('Click to View more Detail'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('today-weather-icon'))),
+      const Size.square(112),
+    );
+    final moodImage = tester.widget<Image>(
+      find.descendant(
+        of: find.byKey(const Key('today-weather-icon')),
+        matching: find.byType(Image),
+      ),
+    );
+    expect((moodImage.image as AssetImage).assetName, Weather.sunny.glyphAsset);
+
+    await tester.tap(find.byKey(const Key('today-mood-detail')));
+    await tester.pumpAndSettle();
+    expect(find.text('Diary'), findsOneWidget);
+    expect(find.text('Good day'), findsOneWidget);
+    expect(find.text('How do you feel overall?'), findsNothing);
   });
 }

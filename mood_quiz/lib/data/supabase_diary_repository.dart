@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:typed_data';
 import '../models/diary.dart';
 import '../models/weather.dart';
 import 'diary_repository.dart';
@@ -11,24 +12,28 @@ class SupabaseDiaryRepository implements DiaryRepository {
   String get _uid => _c.auth.currentUser!.id;
 
   Map<String, dynamic> _toRow(Diary d) => {
-        'user_id': _uid,
-        'date': d.dateKey,
-        'weather': d.weather.key,
-        'mood_score': d.moodScore,
-        'content': d.content,
-        'location_name': d.locationName,
-        'is_backfilled': d.isBackfilled,
-        'created_at': d.createdAt.toIso8601String(),
-      };
+    'user_id': _uid,
+    'date': d.dateKey,
+    'weather': d.weather.key,
+    'mood_score': d.moodScore,
+    'content': d.content,
+    'location_name': d.locationName,
+    'image_urls': d.mediaUrls,
+    'is_backfilled': d.isBackfilled,
+    'created_at': d.createdAt.toIso8601String(),
+  };
 
   Diary _fromRow(Map<String, dynamic> r) => Diary(
-        date: DateTime.parse(r['date'] as String),
-        weather: Weather.fromKey(r['weather'] as String),
-        content: (r['content'] as String?) ?? '',
-        locationName: r['location_name'] as String?,
-        isBackfilled: (r['is_backfilled'] as bool?) ?? false,
-        createdAt: DateTime.parse(r['created_at'] as String),
-      );
+    date: DateTime.parse(r['date'] as String),
+    weather: Weather.fromKey(r['weather'] as String),
+    content: (r['content'] as String?) ?? '',
+    locationName: r['location_name'] as String?,
+    mediaUrls:
+        (r['image_urls'] as List?)?.map((e) => e.toString()).toList() ??
+        const [],
+    isBackfilled: (r['is_backfilled'] as bool?) ?? false,
+    createdAt: DateTime.parse(r['created_at'] as String),
+  );
 
   @override
   Future<List<Diary>> getAll() async {
@@ -57,6 +62,24 @@ class SupabaseDiaryRepository implements DiaryRepository {
   @override
   Future<void> deleteByDate(DateTime date) async {
     await _c.from('diaries').delete().eq('date', Diary.keyOf(date));
+  }
+
+  @override
+  Future<String?> uploadMedia(
+    Uint8List bytes, {
+    required String fileName,
+    required String contentType,
+  }) async {
+    final safeName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final path = '$_uid/${DateTime.now().microsecondsSinceEpoch}_$safeName';
+    await _c.storage
+        .from('diary-media')
+        .uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(contentType: contentType, upsert: false),
+        );
+    return _c.storage.from('diary-media').getPublicUrl(path);
   }
 }
 

@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'data/coop_repository.dart';
+import 'data/app_state_store.dart';
 import 'data/diary_repository.dart';
 import 'data/supabase_config.dart';
 import 'data/supabase_diary_repository.dart';
@@ -9,6 +11,7 @@ import 'pages/healing_page.dart';
 import 'pages/what_if_page.dart';
 import 'pages/home_page.dart';
 import 'pages/my_page.dart';
+import 'pages/onboarding_page.dart';
 import 'pages/report_page.dart';
 import 'widgets/app_bottom_nav.dart';
 
@@ -64,7 +67,12 @@ class MoodQuizApp extends StatelessWidget {
       final p = WhatIfPayload.decode(wif);
       final s = p == null ? null : WhatIfScenario.byId(p.scenario);
       if (p != null && s != null) {
-        return WhatIfPage(scenario: s, invited: true, initialMessages: p.messages);
+        return WhatIfPage(
+          scenario: s,
+          invited: true,
+          initialMessages: p.messages,
+          sessionToken: p.sessionToken,
+        );
       }
     }
     final coop = _fragData('coop');
@@ -72,7 +80,7 @@ class MoodQuizApp extends StatelessWidget {
       final p = CoopPayload.decode(coop);
       if (p != null) return InvitedQuizFlow(payload: p);
     }
-    return RootShell(repo: repo);
+    return OnboardingGate(child: RootShell(repo: repo));
   }
 
   @override
@@ -85,7 +93,8 @@ class MoodQuizApp extends StatelessWidget {
         useMaterial3: true,
       ),
       // 关键：把每一个路由（含 push 出来的写日记页）都包进统一画框。
-      builder: (context, child) => _PhoneFrame(child: child ?? const SizedBox()),
+      builder: (context, child) =>
+          _PhoneFrame(child: child ?? const SizedBox()),
       home: _home(),
     );
   }
@@ -99,22 +108,74 @@ class _PhoneFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xFFE9E0D2),
+      color: const Color(0xFFF2F2F2),
       child: Center(
         child: FittedBox(
           fit: BoxFit.contain,
-          child: SizedBox(
-            width: kFrameW,
-            height: kFrameH,
-            child: MediaQuery(
-              data: const MediaQueryData(
-                size: Size(kFrameW, kFrameH),
-                devicePixelRatio: 1,
-              ),
-              child: child,
-            ),
-          ),
+          child: kIsWeb
+              ? Container(
+                  width: kFrameW + 22,
+                  height: kFrameH + 22,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF101114),
+                    borderRadius: BorderRadius.circular(54),
+                    border: Border.all(
+                      color: const Color(0xFF686B70),
+                      width: 2,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x55000000),
+                        blurRadius: 22,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(45),
+                    child: Stack(
+                      children: [
+                        _logicalScreen(child),
+                        const Positioned(
+                          top: 12,
+                          left: 151,
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Colors.black,
+                                borderRadius: BorderRadius.all(
+                                  Radius.circular(20),
+                                ),
+                              ),
+                              child: SizedBox(width: 91, height: 29),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : SizedBox(
+                  width: kFrameW,
+                  height: kFrameH,
+                  child: _logicalScreen(child),
+                ),
         ),
+      ),
+    );
+  }
+
+  Widget _logicalScreen(Widget child) {
+    return SizedBox(
+      width: kFrameW,
+      height: kFrameH,
+      child: MediaQuery(
+        data: const MediaQueryData(
+          size: Size(kFrameW, kFrameH),
+          devicePixelRatio: 1,
+        ),
+        child: child,
       ),
     );
   }
@@ -144,6 +205,25 @@ class _RootShellState extends State<RootShell> {
     MyPage(onBack: _goHome),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    AppNavigationBus.requestedTab.addListener(_handleTabRequest);
+  }
+
+  @override
+  void dispose() {
+    AppNavigationBus.requestedTab.removeListener(_handleTabRequest);
+    super.dispose();
+  }
+
+  void _handleTabRequest() {
+    final requested = AppNavigationBus.requestedTab.value;
+    if (requested == null) return;
+    AppNavigationBus.requestedTab.value = null;
+    _select(requested);
+  }
+
   /// 各页左上角返回 -> 回到 Weather mood 首页。
   void _goHome() => _select(0);
 
@@ -172,4 +252,3 @@ class _RootShellState extends State<RootShell> {
     );
   }
 }
-

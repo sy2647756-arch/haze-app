@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../data/auth_service.dart';
@@ -5,6 +6,7 @@ import '../data/diary_repository.dart';
 import '../models/diary.dart';
 import '../models/weather.dart';
 import 'quiz_home_page.dart';
+import 'quiz_intro_page.dart';
 import 'write_diary_page.dart';
 
 /// 首页「Weather mood」，像素还原 Figma 65:1060。设计画布 393×852。
@@ -20,7 +22,8 @@ class HomePage extends StatefulWidget {
 
 class HomePageState extends State<HomePage> {
   Diary? _today;
-  List<Diary> _recent = []; // 最近两篇
+  Diary? _yesterday;
+  Diary? _dayBeforeYesterday;
   bool _loading = true;
 
   @override
@@ -30,21 +33,30 @@ class HomePageState extends State<HomePage> {
   }
 
   Future<void> reload() async {
-    final all = await widget.repo.getAll();
-    final today = await widget.repo.getByDate(DateTime.now());
+    final now = DateTime.now();
+    final today = await widget.repo.getByDate(now);
+    final yesterday = await widget.repo.getByDate(
+      now.subtract(const Duration(days: 1)),
+    );
+    final dayBefore = await widget.repo.getByDate(
+      now.subtract(const Duration(days: 2)),
+    );
     if (!mounted) return;
     setState(() {
       _today = today;
-      _recent = all.reversed.take(2).toList(); // 最新在前
+      _yesterday = yesterday;
+      _dayBeforeYesterday = dayBefore;
       _loading = false;
     });
   }
 
   Future<void> _openWrite(DateTime date, {Diary? existing}) async {
-    final changed = await Navigator.of(context).push<bool>(MaterialPageRoute(
-      builder: (_) =>
-          WriteDiaryPage(repo: widget.repo, date: date, existing: existing),
-    ));
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) =>
+            WriteDiaryPage(repo: widget.repo, date: date, existing: existing),
+      ),
+    );
     if (changed == true) {
       reload();
       // 软提示：写满第 3 篇且还是匿名 → 引导绑定 Google（见决策文档 §2）。
@@ -71,10 +83,12 @@ class HomePageState extends State<HomePage> {
       children: [
         // 背景铺图
         Positioned.fill(
-          child: Image.asset('assets/home/bg.png',
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) =>
-                  const ColoredBox(color: Color(0xFFFDF3E6))),
+          child: Image.asset(
+            'assets/home/bg.png',
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) =>
+                const ColoredBox(color: Color(0xFFFDF3E6)),
+          ),
         ),
         // 中央吉祥物（半透明）
         Positioned(
@@ -84,20 +98,25 @@ class HomePageState extends State<HomePage> {
           height: 383,
           child: Opacity(
             opacity: 0.5,
-            child: Image.asset('assets/home/mascot.png',
-                fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => const SizedBox.shrink()),
+            child: Image.asset(
+              'assets/home/mascot.png',
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            ),
           ),
         ),
         // 日期
         Positioned(
           left: 25,
           top: 84,
-          child: Text(DateFormat('yyyy.MM.dd').format(DateTime.now()),
-              style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFFC640A3))),
+          child: Text(
+            DateFormat('yyyy.MM.dd').format(DateTime.now()),
+            style: const TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFC640A3),
+            ),
+          ),
         ),
         // + 按钮
         Positioned(
@@ -113,12 +132,15 @@ class HomePageState extends State<HomePage> {
                 color: Color(0xFFFFE229),
                 shape: BoxShape.circle,
               ),
-              child: const Text('+',
-                  style: TextStyle(
-                      fontSize: 38,
-                      height: 1,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFFC640A3))),
+              child: const Text(
+                '+',
+                style: TextStyle(
+                  fontSize: 38,
+                  height: 1,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFC640A3),
+                ),
+              ),
             ),
           ),
         ),
@@ -136,33 +158,81 @@ class HomePageState extends State<HomePage> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0x1AFFE229), Color(0x1A7FC4FB)],
+                colors: [Color(0xCCFFF7D9), Color(0xCCFFFDF1)],
               ),
             ),
           ),
         ),
         // 心情卡天气图标
         Positioned(
-          left: 113,
-          top: 107,
-          width: 166,
-          height: 153,
-          child: Image.asset(todayW.glyphAsset,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => Center(
-                  child: Text(todayW.emoji, style: const TextStyle(fontSize: 72)))),
+          left: 25,
+          top: 143,
+          width: 343,
+          height: 112,
+          child: Center(
+            child: SizedBox.square(
+              key: const Key('today-weather-icon'),
+              dimension: 112,
+              child: Image.asset(
+                todayW.glyphAsset,
+                // Center-crop the source to a square so stray fragments at
+                // the outer edges never enter the mood card.
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                errorBuilder: (_, _, _) => Center(
+                  child: Text(
+                    todayW.emoji,
+                    style: const TextStyle(fontSize: 72),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
         // Today's Mood
         Positioned(
           left: 0,
-          top: 272,
+          top: 268,
           width: 393,
           child: Center(
-            child: Text("Today's Mood: $todayLabel",
-                style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFC640A3))),
+            child: Text(
+              "Today's Mood: $todayLabel",
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFC640A3),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          top: 294,
+          width: 393,
+          child: Center(
+            child: GestureDetector(
+              key: const Key('today-mood-detail'),
+              onTap: _today == null
+                  ? null
+                  : () => _openWrite(_today!.date, existing: _today),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 4,
+                ),
+                child: Text(
+                  'Click to View more Detail',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _today == null
+                        ? const Color(0x80E0A800)
+                        : const Color(0xFFE0A800),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
         // Quiz 入口
@@ -171,7 +241,7 @@ class HomePageState extends State<HomePage> {
         _historyCard(
           slot: 0,
           left: 19,
-          diary: _recent.isNotEmpty ? _recent[0] : null,
+          diary: _yesterday,
           fallbackWeather: Weather.hazy,
           accent: const Color(0xFF8B7EE5),
           detailAccent: const Color(0xFFB2AAEC),
@@ -180,7 +250,7 @@ class HomePageState extends State<HomePage> {
         _historyCard(
           slot: 1,
           left: 205,
-          diary: _recent.length > 1 ? _recent[1] : null,
+          diary: _dayBeforeYesterday,
           fallbackWeather: Weather.breezy,
           accent: const Color(0xFF66B550),
           detailAccent: const Color(0xFF99CE8D),
@@ -198,12 +268,17 @@ class HomePageState extends State<HomePage> {
         Positioned(
           left: 65,
           top: 351,
-          child: Container(
-            width: 303,
-            height: 39,
-            decoration: BoxDecoration(
-              color: const Color(0x4DA2D7FF),
-              borderRadius: BorderRadius.circular(10),
+          child: GestureDetector(
+            key: const Key('daily-quiz-picks'),
+            behavior: HitTestBehavior.opaque,
+            onTap: _showDailyQuiz,
+            child: Container(
+              width: 303,
+              height: 39,
+              decoration: BoxDecoration(
+                color: const Color(0x4DA2D7FF),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
         ),
@@ -211,8 +286,10 @@ class HomePageState extends State<HomePage> {
         const Positioned(
           left: 118,
           top: 362,
-          child: Text('Daily Quiz Picks',
-              style: TextStyle(fontSize: 14, color: Color(0x80000000))),
+          child: Text(
+            'Daily Quiz Picks',
+            style: TextStyle(fontSize: 14, color: Color(0x80000000)),
+          ),
         ),
         const Positioned(
           left: 339,
@@ -224,8 +301,9 @@ class HomePageState extends State<HomePage> {
           left: 25,
           top: 329,
           child: GestureDetector(
-            onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const QuizHomePage())),
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const QuizHomePage())),
             child: Container(
               width: 80,
               height: 61,
@@ -234,15 +312,74 @@ class HomePageState extends State<HomePage> {
                 color: const Color(0xFF80C4FA),
                 borderRadius: BorderRadius.circular(13),
               ),
-              child: const Text('Quiz',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xCCFFFFFF))),
+              child: const Text(
+                'Quiz',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xCCFFFFFF),
+                ),
+              ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  void _showDailyQuiz() {
+    const picks = [
+      QuizIntroData.chatCheck,
+      QuizIntroData.depthBoundaryRadar,
+      QuizIntroData.realWorldSignal,
+      QuizIntroData.leftOnRead,
+      QuizIntroData.mindReading,
+      QuizIntroData.selfWorth,
+    ];
+    final pick = picks[Random().nextInt(picks.length)];
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        backgroundColor: const Color(0xFFEAFEFD),
+        title: const Text("Today's Quiz Pick"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              pick.title,
+              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              pick.goal,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(height: 1.45),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFFE229),
+              foregroundColor: const Color(0xFFC640A3),
+            ),
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => QuizIntroPage(data: pick)),
+              );
+            },
+            child: const Text('Start quiz'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -258,68 +395,87 @@ class HomePageState extends State<HomePage> {
     final w = diary?.weather ?? fallbackWeather;
     final dateStr = diary != null
         ? DateFormat('yyyy.MM.dd').format(diary.date)
-        : '2026.06.01';
+        : DateFormat(
+            'yyyy.MM.dd',
+          ).format(DateTime.now().subtract(Duration(days: slot + 1)));
     return Positioned(
       left: left,
       top: 614,
       width: 173,
       height: 113,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // 卡片底
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                color: bg.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          clipBehavior: Clip.hardEdge,
+          children: [
+            // 卡片底
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: bg.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 8,
-                      offset: const Offset(0, 3)),
-                ],
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          // 天气图标（右上）
-          Positioned(
-            right: 6,
-            top: -6,
-            width: 64,
-            height: 56,
-            child: Image.asset(w.glyphAsset,
+            // 天气图标（右上）
+            Positioned(
+              right: 8,
+              top: 2,
+              width: 58,
+              height: 50,
+              child: Image.asset(
+                w.glyphAsset,
                 fit: BoxFit.contain,
-                errorBuilder: (_, _, _) =>
-                    Center(child: Text(w.emoji, style: const TextStyle(fontSize: 32)))),
-          ),
-          // 天气名
-          Positioned(
-            left: 19,
-            top: 13,
-            child: Text(w.label,
-                style: TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.w600, color: accent)),
-          ),
-          // 日期
-          Positioned(
-            left: 19,
-            top: 43,
-            child: Text(dateStr, style: TextStyle(fontSize: 14, color: accent)),
-          ),
-          // Detail
-          Positioned(
-            right: 14,
-            bottom: 10,
-            child: GestureDetector(
-              onTap: diary == null
-                  ? null
-                  : () => _openWrite(diary.date, existing: diary),
-              child: Text('Detail',
-                  style: TextStyle(fontSize: 14, color: detailAccent)),
+                errorBuilder: (_, _, _) => Center(
+                  child: Text(w.emoji, style: const TextStyle(fontSize: 32)),
+                ),
+              ),
             ),
-          ),
-        ],
+            // 天气名
+            Positioned(
+              left: 19,
+              top: 13,
+              child: Text(
+                w.label,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: accent,
+                ),
+              ),
+            ),
+            // 日期
+            Positioned(
+              left: 19,
+              top: 43,
+              child: Text(
+                dateStr,
+                style: TextStyle(fontSize: 14, color: accent),
+              ),
+            ),
+            // Detail
+            Positioned(
+              right: 14,
+              bottom: 10,
+              child: GestureDetector(
+                onTap: diary == null
+                    ? null
+                    : () => _openWrite(diary.date, existing: diary),
+                child: Text(
+                  'Detail',
+                  style: TextStyle(fontSize: 14, color: detailAccent),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

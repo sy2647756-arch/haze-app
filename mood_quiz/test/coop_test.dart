@@ -17,12 +17,18 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test('CoopPayload encode/decode round-trips', () {
-    const p = CoopPayload(section: 'ph', name: 'Alice', answers: [0, 2, 1, 0, 1, 2]);
+    const p = CoopPayload(
+      section: 'ph',
+      name: 'Alice',
+      answers: [0, 2, 1, 0, 1, 2],
+      sessionToken: 'shared-token',
+    );
     final decoded = CoopPayload.decode(p.encode());
     expect(decoded, isNotNull);
     expect(decoded!.section, 'ph');
     expect(decoded.name, 'Alice');
     expect(decoded.answers, [0, 2, 1, 0, 1, 2]);
+    expect(decoded.sessionToken, 'shared-token');
   });
 
   test('CoopPayload.decode returns null on garbage', () {
@@ -41,8 +47,9 @@ void main() {
     expect(r.percent, 67);
   });
 
-  testWidgets('invited result page shows match summary and comparison',
-      (tester) async {
+  testWidgets('invited result page shows match summary and comparison', (
+    tester,
+  ) async {
     const result = CoopResult(
       section: 'ph',
       myName: 'Sam',
@@ -51,9 +58,12 @@ void main() {
       partnerAnswers: [0, 1, 0, 0, 2, 0], // 4 of 6 same
     );
     await _pump(
-        tester,
-        CoopResultPage.invited(
-            data: QuizIntroData.preferencesHabits, result: result));
+      tester,
+      CoopResultPage.invited(
+        data: QuizIntroData.preferencesHabits,
+        result: result,
+      ),
+    );
 
     expect(find.textContaining('matched on 4 of 6'), findsOneWidget);
     expect(find.text('View Comparison'), findsOneWidget);
@@ -61,8 +71,11 @@ void main() {
   });
 
   testWidgets('invited flow: name → quiz → match result', (tester) async {
-    const payload =
-        CoopPayload(section: 'ph', name: 'Alex', answers: [0, 0, 0, 0, 0, 0]);
+    const payload = CoopPayload(
+      section: 'ph',
+      name: 'Alex',
+      answers: [0, 0, 0, 0, 0, 0],
+    );
     await _pump(tester, const InvitedQuizFlow(payload: payload));
 
     // 名字页
@@ -85,10 +98,12 @@ void main() {
 
   testWidgets('initiator sees waiting state after finishing', (tester) async {
     await _pump(
-        tester,
-        CoopResultPage.initiator(
-            data: QuizIntroData.preferencesHabits,
-            myAnswers: const [0, 1, 2, 0, 1, 2]));
+      tester,
+      CoopResultPage.initiator(
+        data: QuizIntroData.preferencesHabits,
+        myAnswers: const [0, 1, 2, 0, 1, 2],
+      ),
+    );
 
     expect(find.textContaining('Waiting for your partner'), findsOneWidget);
     expect(find.text('Invite your partner'), findsOneWidget);

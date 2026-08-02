@@ -1,13 +1,14 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import '../services/kimi_service.dart';
 
 class _MouseDragScrollBehavior extends MaterialScrollBehavior {
   @override
   Set<PointerDeviceKind> get dragDevices => {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.trackpad,
-      };
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+  };
 }
 
 /// 咨询师。
@@ -19,16 +20,36 @@ class Therapist {
   final String consultations;
 
   static const all = <Therapist>[
-    Therapist('Max', 'assets/counseling/max.png', '94% Positive Reviews',
-        '5000+ Total Consultations'),
-    Therapist('Grace', 'assets/counseling/grace.png', '92% Positive Reviews',
-        '4000+ Total Consultations'),
-    Therapist('Lei', 'assets/counseling/lei.png', '90% Positive Reviews',
-        '4500+ Total Consultations'),
-    Therapist('Melody', 'assets/counseling/melody.png', '85% Positive Reviews',
-        '4000+ Total Consultations'),
-    Therapist('Sarah', 'assets/counseling/sarah.png', '85% Positive Reviews',
-        '4000+ Total Consultations'),
+    Therapist(
+      'Max',
+      'assets/counseling/max.png',
+      '94% Positive Reviews',
+      '5000+ Total Consultations',
+    ),
+    Therapist(
+      'Grace',
+      'assets/counseling/grace.png',
+      '92% Positive Reviews',
+      '4000+ Total Consultations',
+    ),
+    Therapist(
+      'Lei',
+      'assets/counseling/lei.png',
+      '90% Positive Reviews',
+      '4500+ Total Consultations',
+    ),
+    Therapist(
+      'Melody',
+      'assets/counseling/melody.png',
+      '85% Positive Reviews',
+      '4000+ Total Consultations',
+    ),
+    Therapist(
+      'Sarah',
+      'assets/counseling/sarah.png',
+      '85% Positive Reviews',
+      '4000+ Total Consultations',
+    ),
   ];
 }
 
@@ -60,8 +81,11 @@ class CounselingPage extends StatelessWidget {
               top: 68,
               child: GestureDetector(
                 onTap: () => Navigator.of(context).maybePop(),
-                child: Icon(Icons.chevron_left,
-                    size: 28, color: Colors.black.withValues(alpha: 0.8)),
+                child: Icon(
+                  Icons.chevron_left,
+                  size: 28,
+                  color: Colors.black.withValues(alpha: 0.8),
+                ),
               ),
             ),
             const Positioned(
@@ -69,11 +93,14 @@ class CounselingPage extends StatelessWidget {
               top: 70,
               width: 393,
               child: Center(
-                child: Text('Counseling',
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black)),
+                child: Text(
+                  'Counseling',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
               ),
             ),
             Positioned(
@@ -106,20 +133,25 @@ class CounselingPage extends StatelessWidget {
       height: 123,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Stack(
         children: [
           Row(
             children: [
               ClipOval(
-                child: Image.asset(t.avatar,
+                child: Image.asset(
+                  t.avatar,
+                  width: 56,
+                  height: 56,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(
                     width: 56,
                     height: 56,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                        width: 56,
-                        height: 56,
-                        color: const Color(0xFFEDEAF6))),
+                    color: const Color(0xFFEDEAF6),
+                  ),
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -127,23 +159,30 @@ class CounselingPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(t.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black)),
+                    Text(
+                      t.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                    ),
                     const SizedBox(height: 8),
-                    Text(t.reviews,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: _orange)),
+                    Text(
+                      t.reviews,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: _orange),
+                    ),
                     const SizedBox(height: 4),
-                    Text(t.consultations,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: _orange)),
+                    Text(
+                      t.consultations,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: _orange),
+                    ),
                   ],
                 ),
               ),
@@ -154,17 +193,23 @@ class CounselingPage extends StatelessWidget {
             right: 0,
             top: 13,
             child: GestureDetector(
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => CounselingChatPage(therapist: t))),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => CounselingChatPage(therapist: t),
+                ),
+              ),
               child: Container(
                 width: 73,
                 height: 27,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                    color: const Color(0xFFFFE229),
-                    borderRadius: BorderRadius.circular(13)),
-                child: const Text('Choose',
-                    style: TextStyle(fontSize: 13, color: _magenta)),
+                  color: const Color(0xFFFFE229),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Text(
+                  'Choose',
+                  style: TextStyle(fontSize: 13, color: _magenta),
+                ),
               ),
             ),
           ),
@@ -177,22 +222,24 @@ class CounselingPage extends StatelessWidget {
 /// Counseling 对话页（Figma 27:1414）。UI-only：预置一段示例对话，
 /// 输入框本地回显（不接大模型）。左侧头像为咨询师照片，右侧为星星。
 class CounselingChatPage extends StatefulWidget {
-  const CounselingChatPage({super.key, required this.therapist});
+  const CounselingChatPage({
+    super.key,
+    required this.therapist,
+    this.service,
+  });
   final Therapist therapist;
+  final KimiService? service;
 
   @override
   State<CounselingChatPage> createState() => _CounselingChatPageState();
 }
 
 class _CounselingChatPageState extends State<CounselingChatPage> {
+  late final KimiService _ai = widget.service ?? const KimiService();
   final _input = TextEditingController();
   final _scroll = ScrollController();
-  late final List<(bool, String)> _messages = [
-    (true,
-        'They left me on read for over 4 hours. My mind is racing... Did I say something wrong?'),
-    (false,
-        "I hear your anxiety. Before we assume the worst, let's look at the facts. Has there been any solid evidence today showing they are angry with you, or is your mind filling in the blanks?"),
-  ];
+  final List<ChatMessage> _messages = [];
+  bool _replying = false;
 
   @override
   void dispose() {
@@ -201,17 +248,48 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
     super.dispose();
   }
 
-  void _send(String text) {
+  Future<void> _send(String text) async {
     final t = text.trim();
-    if (t.isEmpty) return;
+    if (t.isEmpty || _replying) return;
     setState(() {
-      _messages.add((true, t));
+      _messages.add(ChatMessage(fromUser: true, text: t));
       _input.clear();
+      _replying = true;
     });
+    _scrollToBottom();
+    try {
+      final history = _messages.length > 20
+          ? _messages.sublist(_messages.length - 20)
+          : _messages;
+      final answer = await _ai.replyAsCounselor(
+        history,
+        therapistName: widget.therapist.name,
+      );
+      if (!mounted) return;
+      setState(() {
+        _messages.add(ChatMessage(fromUser: false, text: answer));
+      });
+    } on KimiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _messages.add(ChatMessage(fromUser: false, text: error.message));
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _replying = false);
+        _scrollToBottom();
+      }
+    }
+  }
+
+  void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
-        _scroll.animateTo(_scroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
       }
     });
   }
@@ -230,11 +308,14 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
               top: 70,
               width: 393,
               child: Center(
-                child: Text('Counseling',
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black)),
+                child: Text(
+                  'Counseling',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
               ),
             ),
             Positioned(
@@ -247,8 +328,14 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
                   height: 42,
                   alignment: Alignment.center,
                   decoration: const BoxDecoration(
-                      color: Colors.white, shape: BoxShape.circle),
-                  child: const Icon(Icons.close, size: 20, color: Colors.black87),
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    size: 20,
+                    color: Colors.black87,
+                  ),
                 ),
               ),
             ),
@@ -257,8 +344,10 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
               top: 108,
               width: 393,
               child: Center(
-                child: Text('Consultation for reference only; follow your inner guidance.',
-                    style: TextStyle(fontSize: 11, color: _magenta)),
+                child: Text(
+                  'Consultation for reference only; follow your inner guidance.',
+                  style: TextStyle(fontSize: 11, color: _magenta),
+                ),
               ),
             ),
             Positioned(
@@ -271,7 +360,23 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
                 child: ListView(
                   controller: _scroll,
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                  children: [for (final m in _messages) _bubble(m.$1, m.$2)],
+                  children: [
+                    if (_messages.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 220),
+                        child: Text(
+                          'Start by sharing what is on your mind.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.black.withValues(alpha: 0.4),
+                          ),
+                        ),
+                      ),
+                    for (final m in _messages)
+                      _bubble(m.fromUser, m.text),
+                    if (_replying) _bubble(false, 'Typing...'),
+                  ],
                 ),
               ),
             ),
@@ -284,36 +389,52 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
 
   Widget _bubble(bool fromUser, String text) {
     final avatar = fromUser
-        ? Image.asset('assets/treehole/avatar_user.png',
+        ? Image.asset(
+            'assets/treehole/avatar_user.png',
             width: 47,
             height: 47,
             fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => const SizedBox(width: 47, height: 47))
+            errorBuilder: (_, _, _) => const SizedBox(width: 47, height: 47),
+          )
         : ClipOval(
-            child: Image.asset(widget.therapist.avatar,
+            child: Image.asset(
+              widget.therapist.avatar,
+              width: 44,
+              height: 44,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Container(
                 width: 44,
                 height: 44,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                    width: 44, height: 44, color: const Color(0xFFEDEAF6))));
+                color: const Color(0xFFEDEAF6),
+              ),
+            ),
+          );
     final bubble = Flexible(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         constraints: const BoxConstraints(maxWidth: 240),
         decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(17)),
-        child: Text(text,
-            style: const TextStyle(
-                fontSize: 15, height: 1.4, color: Color(0xCC000000))),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(17),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 15,
+            height: 1.4,
+            color: Color(0xCC000000),
+          ),
+        ),
       ),
     );
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment:
-            fromUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: fromUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: fromUser ? [bubble, avatar] : [avatar, bubble],
       ),
     );
@@ -325,16 +446,22 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
       height: 49,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(13)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(13),
+      ),
       child: Row(
         children: [
-          Icon(Icons.edit_outlined,
-              size: 18, color: Colors.black.withValues(alpha: 0.55)),
+          Icon(
+            Icons.edit_outlined,
+            size: 18,
+            color: Colors.black.withValues(alpha: 0.55),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: TextField(
               controller: _input,
               onSubmitted: _send,
+              enabled: !_replying,
               textInputAction: TextInputAction.send,
               style: const TextStyle(fontSize: 14, color: Colors.black87),
               cursorColor: _magenta,
@@ -343,15 +470,20 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
                 border: InputBorder.none,
                 hintText: 'Type here',
                 hintStyle: TextStyle(
-                    fontSize: 14, color: Colors.black.withValues(alpha: 0.5)),
+                  fontSize: 14,
+                  color: Colors.black.withValues(alpha: 0.5),
+                ),
               ),
             ),
           ),
           const SizedBox(width: 8),
           GestureDetector(
-            onTap: () => _send(_input.text),
-            child: Icon(Icons.mic_none_rounded,
-                size: 22, color: Colors.black.withValues(alpha: 0.55)),
+            onTap: _replying ? null : () => _send(_input.text),
+            child: Icon(
+              Icons.send_rounded,
+              size: 22,
+              color: Colors.black.withValues(alpha: 0.55),
+            ),
           ),
         ],
       ),

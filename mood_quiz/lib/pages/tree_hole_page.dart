@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import '../services/kimi_service.dart';
 
 /// AI Tree Hole 的对话本地存储（一条连续会话；重进自动带出历史）。
@@ -19,7 +20,9 @@ class TreeHoleStore {
   static Future<void> save(List<ChatMessage> msgs) async {
     final p = await SharedPreferences.getInstance();
     await p.setStringList(
-        _key, msgs.map((m) => jsonEncode(m.toJson())).toList());
+      _key,
+      msgs.map((m) => jsonEncode(m.toJson())).toList(),
+    );
   }
 
   static Future<void> clear() async {
@@ -32,27 +35,29 @@ class TreeHoleStore {
 class _MouseDragScrollBehavior extends MaterialScrollBehavior {
   @override
   Set<PointerDeviceKind> get dragDevices => {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.trackpad,
-      };
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+  };
 }
 
 /// AI Tree Hole（Figma 18:1514）。
 /// 星空背景的聊天页：用户吐露心事，Kimi 以 CBT 语气温柔回应。
 /// 用户气泡靠右+黄色星星头像；AI 气泡靠左+蓝色头像。纯前端调用 Kimi。
 class TreeHolePage extends StatefulWidget {
-  const TreeHolePage({super.key, this.service});
+  const TreeHolePage({super.key, this.service, this.importedText});
 
   /// 可注入（测试用）；默认在 State 里 new 一个真实的。
   final KimiService? service;
+  final String? importedText;
 
   @override
   State<TreeHolePage> createState() => _TreeHolePageState();
 }
 
 /// 开场白：无历史时用它起头。
-const _greeting = "Hey, I'm here. Whatever's weighing on you, "
+const _greeting =
+    "Hey, I'm here. Whatever's weighing on you, "
     "you can let it out. What happened?";
 
 /// 每次调用 Kimi 时，最多回带多少条历史（控制 token / 上下文长度）。
@@ -64,6 +69,8 @@ class _TreeHolePageState extends State<TreeHolePage> {
   final _scroll = ScrollController();
   final _messages = <ChatMessage>[];
   bool _waiting = false;
+  final SpeechToText _speech = SpeechToText();
+  bool _listening = false;
 
   @override
   void initState() {
@@ -74,14 +81,26 @@ class _TreeHolePageState extends State<TreeHolePage> {
   Future<void> _restore() async {
     final saved = await TreeHoleStore.load();
     if (!mounted) return;
+    final imported = widget.importedText?.trim();
     setState(() {
       _messages
         ..clear()
-        ..addAll(saved.isEmpty
-            ? [ChatMessage(fromUser: false, text: _greeting)]
-            : saved);
+        ..addAll(
+          saved.isEmpty
+              ? [ChatMessage(fromUser: false, text: _greeting)]
+              : saved,
+        );
+      if (imported != null &&
+          imported.isNotEmpty &&
+          !_messages.any(
+            (message) => message.fromUser && message.text == imported,
+          )) {
+        _messages.add(ChatMessage(fromUser: true, text: imported));
+      }
     });
-    if (saved.isEmpty) TreeHoleStore.save(_messages);
+    if (saved.isEmpty || imported?.isNotEmpty == true) {
+      TreeHoleStore.save(_messages);
+    }
     _scrollToBottom();
   }
 
@@ -95,9 +114,11 @@ class _TreeHolePageState extends State<TreeHolePage> {
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
-        _scroll.animateTo(_scroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOut);
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
       }
     });
   }
@@ -122,7 +143,9 @@ class _TreeHolePageState extends State<TreeHolePage> {
       setState(() => _messages.add(ChatMessage(fromUser: false, text: answer)));
     } on KimiException catch (e) {
       if (!mounted) return;
-      setState(() => _messages.add(ChatMessage(fromUser: false, text: e.message)));
+      setState(
+        () => _messages.add(ChatMessage(fromUser: false, text: e.message)),
+      );
     } finally {
       if (mounted) {
         setState(() => _waiting = false);
@@ -132,20 +155,68 @@ class _TreeHolePageState extends State<TreeHolePage> {
     }
   }
 
+  Future<void> _toggleListening() async {
+    if (_waiting) return;
+    if (_speech.isListening) {
+      await _speech.stop();
+      if (mounted) setState(() => _listening = false);
+      return;
+    }
+    final available = await _speech.initialize(
+      onStatus: (status) {
+        if (!mounted) return;
+        setState(() => _listening = status == 'listening');
+      },
+      onError: (_) {
+        if (!mounted) return;
+        setState(() => _listening = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Voice input could not start. Please allow microphone access.',
+            ),
+          ),
+        );
+      },
+    );
+    if (!available || !mounted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Voice input is not available here.')),
+        );
+      }
+      return;
+    }
+    setState(() => _listening = true);
+    await _speech.listen(
+      onResult: (result) {
+        _input.text = result.recognizedWords;
+        _input.selection = TextSelection.collapsed(offset: _input.text.length);
+      },
+      listenOptions: SpeechListenOptions(
+        listenMode: ListenMode.dictation,
+        partialResults: true,
+      ),
+    );
+  }
+
   Future<void> _clearConversation() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Clear this conversation?'),
         content: const Text(
-            'Your chat history in the Tree Hole will be permanently removed.'),
+          'Your chat history in the Tree Hole will be permanently removed.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Clear')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Clear'),
+          ),
         ],
       ),
     );
@@ -169,10 +240,12 @@ class _TreeHolePageState extends State<TreeHolePage> {
         children: [
           // 星空背景 + 边缘压暗
           Positioned.fill(
-            child: Image.asset('assets/treehole/bg.jpg',
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) =>
-                    const ColoredBox(color: Color(0xFF3B4A8C))),
+            child: Image.asset(
+              'assets/treehole/bg.jpg',
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) =>
+                  const ColoredBox(color: Color(0xFF3B4A8C)),
+            ),
           ),
           Positioned.fill(
             child: DecoratedBox(
@@ -196,11 +269,14 @@ class _TreeHolePageState extends State<TreeHolePage> {
             top: 69,
             width: 393,
             child: Center(
-              child: Text('Ai Tree Hole',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
+              child: Text(
+                'AI Tree Hole & Templates',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
           // 清空会话（自设计：Figma 无此按钮，放在标题左侧）
@@ -209,8 +285,11 @@ class _TreeHolePageState extends State<TreeHolePage> {
             top: 66,
             child: GestureDetector(
               onTap: _clearConversation,
-              child: Icon(Icons.delete_outline,
-                  size: 24, color: Colors.white.withValues(alpha: 0.85)),
+              child: Icon(
+                Icons.delete_outline,
+                size: 24,
+                color: Colors.white.withValues(alpha: 0.85),
+              ),
             ),
           ),
           // 关闭按钮（白圆 + X）
@@ -224,7 +303,9 @@ class _TreeHolePageState extends State<TreeHolePage> {
                 height: 42,
                 alignment: Alignment.center,
                 decoration: const BoxDecoration(
-                    color: Colors.white, shape: BoxShape.circle),
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
                 child: const Icon(Icons.close, size: 22, color: Colors.black87),
               ),
             ),
@@ -256,6 +337,8 @@ class _TreeHolePageState extends State<TreeHolePage> {
               controller: _input,
               enabled: !_waiting,
               onSend: _send,
+              listening: _listening,
+              onMic: _toggleListening,
             ),
           ),
         ],
@@ -290,15 +373,16 @@ class _Bubble extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         constraints: const BoxConstraints(maxWidth: 250),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: message.fromUser ? const Color(0xFFFFF9C9) : Colors.white,
           borderRadius: BorderRadius.circular(17),
         ),
         child: Text(
           message.text,
           style: const TextStyle(
-              fontSize: 15,
-              height: 1.47,
-              color: Color(0xCC000000)), // rgba(0,0,0,0.8)
+            fontSize: 15,
+            height: 1.47,
+            color: Color(0xCC000000),
+          ), // rgba(0,0,0,0.8)
         ),
       ),
     );
@@ -307,11 +391,10 @@ class _Bubble extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 22),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment:
-            message.fromUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: message.fromUser
-            ? [bubble, avatar]
-            : [avatar, bubble],
+        mainAxisAlignment: message.fromUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        children: message.fromUser ? [bubble, avatar] : [avatar, bubble],
       ),
     );
   }
@@ -326,9 +409,10 @@ class _TypingBubble extends StatefulWidget {
 
 class _TypingBubbleState extends State<_TypingBubble>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1000))
-        ..repeat();
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1000),
+  )..repeat();
 
   @override
   void dispose() {
@@ -345,17 +429,21 @@ class _TypingBubbleState extends State<_TypingBubble>
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Image.asset('assets/treehole/avatar_ai.png',
-                width: 48,
-                height: 48,
-                fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => const SizedBox(width: 48, height: 48)),
+            child: Image.asset(
+              'assets/treehole/avatar_ai.png',
+              width: 48,
+              height: 48,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const SizedBox(width: 48, height: 48),
+            ),
           ),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 8),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(17)),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(17),
+            ),
             child: AnimatedBuilder(
               animation: _c,
               builder: (_, _) {
@@ -388,11 +476,18 @@ class _TypingBubbleState extends State<_TypingBubble>
 
 /// 底部输入栏：铅笔图标 + 输入框 + 发送/麦克风。
 class _InputBar extends StatefulWidget {
-  const _InputBar(
-      {required this.controller, required this.enabled, required this.onSend});
+  const _InputBar({
+    required this.controller,
+    required this.enabled,
+    required this.onSend,
+    required this.listening,
+    required this.onMic,
+  });
   final TextEditingController controller;
   final bool enabled;
   final VoidCallback onSend;
+  final bool listening;
+  final VoidCallback onMic;
 
   @override
   State<_InputBar> createState() => _InputBarState();
@@ -421,11 +516,16 @@ class _InputBarState extends State<_InputBar> {
       height: 49,
       padding: const EdgeInsets.symmetric(horizontal: 18),
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(13)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(13),
+      ),
       child: Row(
         children: [
-          Icon(Icons.edit_outlined,
-              size: 18, color: Colors.black.withValues(alpha: 0.55)),
+          Icon(
+            Icons.edit_outlined,
+            size: 18,
+            color: Colors.black.withValues(alpha: 0.55),
+          ),
           const SizedBox(width: 14),
           Expanded(
             child: TextField(
@@ -440,17 +540,25 @@ class _InputBarState extends State<_InputBar> {
                 border: InputBorder.none,
                 hintText: 'Type here',
                 hintStyle: TextStyle(
-                    fontSize: 14, color: Colors.black.withValues(alpha: 0.5)),
+                  fontSize: 14,
+                  color: Colors.black.withValues(alpha: 0.5),
+                ),
               ),
             ),
           ),
           const SizedBox(width: 10),
           GestureDetector(
-            onTap: hasText && widget.enabled ? widget.onSend : null,
+            onTap: !widget.enabled
+                ? null
+                : hasText
+                ? widget.onSend
+                : widget.onMic,
             child: Icon(
               hasText ? Icons.send_rounded : Icons.mic_none_rounded,
               size: 22,
-              color: hasText
+              color: widget.listening
+                  ? const Color(0xFFC640A3)
+                  : hasText
                   ? const Color(0xFF8E95FD)
                   : Colors.black.withValues(alpha: 0.55),
             ),

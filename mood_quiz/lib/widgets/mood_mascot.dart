@@ -1,33 +1,96 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 import '../models/weather.dart';
 
-/// ⚠️ 占位组件 —— 吉祥物形象 + 滑动切换动画由**另一位同事**实现。
+/// Displays every mood illustration in one consistent canvas.
 ///
-/// 对接契约（请勿改动签名）：
-///   - 输入：[weather] = 滑块当前选中的天气档位（Stormy..Bright，1..7）。
-///     写日记页在滑块变化时会实时把新档位传进来。
-///   - 职责：根据 [weather] 显示对应形象（素材见
-///     picture/ChatGPT Image 2026年7月15日 03_03_02.png），并负责跨档切换动画。
-///   - 尺寸：占位固定高度 200，实际组件可自行决定，父级用 SizedBox 约束。
-///
-/// 替换方式：把本类实现替换为真实组件，或让写日记页改为引用同事提供的
-/// 组件名（保持接收 `Weather weather` 参数即可）。
+/// Some source PNGs include a thin strip of sprite-sheet text at the bottom.
+/// Painting from a cropped source rectangle removes that strip without
+/// modifying or degrading the original artwork.
 class MoodMascotPlaceholder extends StatelessWidget {
   const MoodMascotPlaceholder({super.key, required this.weather});
 
   final Weather weather;
+  static final Map<String, Future<ui.Image>> _imageCache = {};
+
+  static Future<ui.Image> _load(String asset) {
+    return _imageCache.putIfAbsent(asset, () async {
+      final data = await rootBundle.load(asset);
+      final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+      final frame = await codec.getNextFrame();
+      codec.dispose();
+      return frame.image;
+    });
+  }
+
+  double get _bottomCrop => switch (weather) {
+    Weather.bright => 0.075,
+    Weather.breezy => 0.04,
+    _ => 0.025,
+  };
 
   @override
   Widget build(BuildContext context) {
-    // 当前显示真实形象静态图（切自素材表），填满父容器。
-    // 滑动切换的动画仍由同事的组件替换本类。
-    return Center(
-      child: Image.asset(
-        weather.mascotAsset,
-        fit: BoxFit.contain,
-        errorBuilder: (_, _, _) =>
-            Text(weather.emoji, style: const TextStyle(fontSize: 88)),
-      ),
+    return FutureBuilder<ui.Image>(
+      future: _load(weather.mascotAsset),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(weather.emoji, style: const TextStyle(fontSize: 88)),
+          );
+        }
+        if (!snapshot.hasData) return const SizedBox.expand();
+        return SizedBox.expand(
+          child: CustomPaint(
+            painter: _CroppedMascotPainter(
+              image: snapshot.data!,
+              bottomCrop: _bottomCrop,
+            ),
+          ),
+        );
+      },
     );
+  }
+}
+
+class _CroppedMascotPainter extends CustomPainter {
+  const _CroppedMascotPainter({required this.image, required this.bottomCrop});
+
+  final ui.Image image;
+  final double bottomCrop;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final sourceHeight = image.height * (1 - bottomCrop);
+    final sourceSize = Size(image.width.toDouble(), sourceHeight);
+    // Fit every illustration inside the same canvas. Scaling only by height
+    // made landscape artwork overflow sideways and appear disproportionately
+    // larger than the portrait Gloomy artwork.
+    var destinationWidth = size.width;
+    var destinationHeight = destinationWidth / sourceSize.aspectRatio;
+    if (destinationHeight > size.height) {
+      destinationHeight = size.height;
+      destinationWidth = destinationHeight * sourceSize.aspectRatio;
+    }
+    final destination = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2),
+      width: destinationWidth,
+      height: destinationHeight,
+    );
+    canvas.clipRect(Offset.zero & size);
+    canvas.drawImageRect(
+      image,
+      Offset.zero & sourceSize,
+      destination,
+      Paint()..filterQuality = FilterQuality.high,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _CroppedMascotPainter oldDelegate) {
+    return oldDelegate.image != image || oldDelegate.bottomCrop != bottomCrop;
   }
 }

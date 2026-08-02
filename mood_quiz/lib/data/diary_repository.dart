@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/diary.dart';
 
@@ -11,6 +12,14 @@ abstract class DiaryRepository {
   Future<Diary?> getByDate(DateTime date);
   Future<void> upsert(Diary diary);
   Future<void> deleteByDate(DateTime date);
+
+  /// Cloud repositories may upload the selected diary media and return its URL.
+  /// Local/offline repositories return null so writing a diary still works.
+  Future<String?> uploadMedia(
+    Uint8List bytes, {
+    required String fileName,
+    required String contentType,
+  }) async => null;
 }
 
 /// 某个日期是否允许写/补写：今天，或过去 7 天内；未来不可写。
@@ -25,6 +34,13 @@ bool isWritable(DateTime date, {DateTime? now}) {
 /// 基于 shared_preferences 的本地实现：一个 JSON map，key = 日期字符串。
 class LocalDiaryRepository implements DiaryRepository {
   static const _storageKey = 'diaries_v1';
+
+  @override
+  Future<String?> uploadMedia(
+    Uint8List bytes, {
+    required String fileName,
+    required String contentType,
+  }) async => null;
 
   Future<Map<String, dynamic>> _readMap() async {
     final prefs = await SharedPreferences.getInstance();

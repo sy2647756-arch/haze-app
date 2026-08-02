@@ -35,7 +35,7 @@ void main() {
   testWidgets('tree hole seeds an AI greeting and shows title', (tester) async {
     await _pumpPage(tester, service: _FakeKimi('ok'));
 
-    expect(find.text('Ai Tree Hole'), findsOneWidget);
+    expect(find.text('AI Tree Hole & Templates'), findsOneWidget);
     expect(find.textContaining("I'm here"), findsOneWidget);
     expect(find.text('Type here'), findsOneWidget);
   });

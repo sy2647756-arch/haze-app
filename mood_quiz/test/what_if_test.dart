@@ -15,14 +15,17 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test('WhatIfPayload round-trips scenario + messages', () {
-    const p = WhatIfPayload(scenario: 'late_night', messages: [
-      WhatIfMsg(fromInitiator: true, text: 'I trust them.'),
-    ]);
+    const p = WhatIfPayload(
+      scenario: 'late_night',
+      sessionToken: 'shared-token',
+      messages: [WhatIfMsg(fromInitiator: true, text: 'I trust them.')],
+    );
     final d = WhatIfPayload.decode(p.encode());
     expect(d, isNotNull);
     expect(d!.scenario, 'late_night');
     expect(d.messages.single.text, 'I trust them.');
     expect(d.messages.single.fromInitiator, true);
+    expect(d.sessionToken, 'shared-token');
   });
 
   test('two scenarios exist and are looked up by id', () {
@@ -38,10 +41,12 @@ void main() {
   });
 
   testWidgets('tapping a suggestion posts it as a message', (tester) async {
-    await _pump(
-        tester, WhatIfPage(scenario: WhatIfScenario.all.first));
+    await _pump(tester, WhatIfPage(scenario: WhatIfScenario.all.first));
     // 场景文案可见
-    expect(find.textContaining('posts a photo on social media'), findsOneWidget);
+    expect(
+      find.textContaining('posts a photo on social media'),
+      findsOneWidget,
+    );
     // 点第一个建议 → 变成一条留言
     final suggestion = WhatIfScenario.all.first.suggestions.first;
     expect(find.text(suggestion), findsOneWidget); // 点前：仅建议 chip
@@ -51,8 +56,7 @@ void main() {
     await tester.pump();
     // 点后：回答已提交，建议区消失 → 只剩这条留言气泡
     expect(find.text(suggestion), findsOneWidget);
-    expect(
-        find.text(WhatIfScenario.all.first.suggestions[1]), findsNothing);
+    expect(find.text(WhatIfScenario.all.first.suggestions[1]), findsNothing);
   });
 
   testWidgets('invited view preloads partner messages', (tester) async {

@@ -49,15 +49,38 @@ class KimiService {
   const KimiService();
 
   Future<String> reply(List<ChatMessage> history) async {
-    final messages = <Map<String, String>>[
-      {'role': 'system', 'content': KimiConfig.systemPrompt},
-      ...history.map((m) => m.toApi()),
-    ];
+    return _invoke(history, mode: 'tree_hole');
+  }
+
+  Future<String> replyAsCounselor(
+    List<ChatMessage> history, {
+    required String therapistName,
+  }) {
+    return _invoke(
+      history,
+      mode: 'counseling',
+      therapistName: therapistName,
+    );
+  }
+
+  Future<String> _invoke(
+    List<ChatMessage> history, {
+    required String mode,
+    String? therapistName,
+  }) async {
+    final messages = history.map((m) => m.toApi()).toList();
 
     FunctionResponse res;
     try {
       res = await Supabase.instance.client.functions
-          .invoke('kimi-chat', body: {'messages': messages})
+          .invoke(
+            'kimi-chat',
+            body: {
+              'mode': mode,
+              'therapistName': therapistName,
+              'messages': messages,
+            },
+          )
           .timeout(const Duration(seconds: 40));
     } catch (e) {
       // 未登录 / 网络失败 / 函数未部署，都走这里。
@@ -67,7 +90,7 @@ class KimiService {
     }
 
     if (res.status != 200) {
-      throw KimiException('The Tree Hole is unavailable (error ${res.status}).');
+      throw KimiException('The AI assistant is unavailable (error ${res.status}).');
     }
 
     final data = res.data;

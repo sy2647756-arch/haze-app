@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../data/app_state_store.dart';
 
 /// VIP 订阅页，像素还原 Figma 36:3367（APP_Haze）。
 /// 从 My 页头像的 VIP 标签进入。
@@ -22,6 +23,19 @@ class _SubPageState extends State<SubPage> {
 
   int _selected = 1; // 默认选中 Month Plan
 
+  Future<void> _subscribe() async {
+    await SubscriptionStore.setSubscribed(true);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${_plans[_selected].$1} activated. VIP is now active.'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (mounted) Navigator.of(context).pop(true);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -35,7 +49,11 @@ class _SubPageState extends State<SubPage> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFFFDACCD), Color(0xFFFDABCC), Color(0xFFEEF6FC)],
+                  colors: [
+                    Color(0xFFFDACCD),
+                    Color(0xFFFDABCC),
+                    Color(0xFFEEF6FC),
+                  ],
                   stops: [0.0, 0.5625, 1.0],
                 ),
               ),
@@ -45,11 +63,14 @@ class _SubPageState extends State<SubPage> {
           Positioned(
             left: 5.5,
             top: 59,
-            child: Image.asset('assets/sub/star.png',
-                width: 382,
-                height: 382,
-                fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => const SizedBox(width: 382, height: 382)),
+            child: Image.asset(
+              'assets/sub/star.png',
+              width: 382,
+              height: 382,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) =>
+                  const SizedBox(width: 382, height: 382),
+            ),
           ),
           // 返回
           Positioned(
@@ -57,8 +78,11 @@ class _SubPageState extends State<SubPage> {
             top: 62,
             child: GestureDetector(
               onTap: () => Navigator.of(context).maybePop(),
-              child: Icon(Icons.chevron_left,
-                  size: 28, color: Colors.black.withValues(alpha: 0.7)),
+              child: Icon(
+                Icons.chevron_left,
+                size: 28,
+                color: Colors.black.withValues(alpha: 0.7),
+              ),
             ),
           ),
           // 三个套餐卡
@@ -68,22 +92,23 @@ class _SubPageState extends State<SubPage> {
             left: 25.67,
             top: 720.75,
             child: GestureDetector(
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Subscription — coming soon'),
-                    duration: Duration(seconds: 1)),
-              ),
+              onTap: _subscribe,
               child: Container(
                 width: 342.6,
                 height: 58,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                    color: _yellow, borderRadius: BorderRadius.circular(10)),
-                child: const Text('Subscribe',
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: _magenta)),
+                  color: _yellow,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  'Subscribe',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: _magenta,
+                  ),
+                ),
               ),
             ),
           ),
@@ -92,11 +117,14 @@ class _SubPageState extends State<SubPage> {
             left: 39.5,
             top: 787.75,
             width: 320,
-            child: Text('Terms of Use   |   Privacy Policy   |   Restore Purchases',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black.withValues(alpha: 0.4))),
+            child: Text(
+              'Terms of Use   |   Privacy Policy   |   Restore Purchases',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.black.withValues(alpha: 0.4),
+              ),
+            ),
           ),
         ],
       ),
@@ -128,8 +156,9 @@ class _SubPageState extends State<SubPage> {
                     color: Colors.white.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                        color: selected ? _magenta : Colors.transparent,
-                        width: 2),
+                      color: selected ? _magenta : Colors.transparent,
+                      width: 2,
+                    ),
                   ),
                 ),
               ),
@@ -142,23 +171,31 @@ class _SubPageState extends State<SubPage> {
                   height: 21.9,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                      color: _yellow, borderRadius: BorderRadius.circular(5)),
-                  child: const Text('50% Off',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: _magenta)),
+                    color: _yellow,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: const Text(
+                    '50% Off',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _magenta,
+                    ),
+                  ),
                 ),
               ),
               // 计划名
               Positioned(
                 left: 19,
                 top: 32,
-                child: Text(name,
-                    style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black)),
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
               ),
               // 价格：现价 + 划线原价
               Positioned(
@@ -168,18 +205,24 @@ class _SubPageState extends State<SubPage> {
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Text('￥$price',
-                        style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black)),
+                    Text(
+                      '￥$price',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                    ),
                     const SizedBox(width: 10),
-                    Text('￥$orig',
-                        style: TextStyle(
-                            fontSize: 15,
-                            color: Colors.black.withValues(alpha: 0.3),
-                            decoration: TextDecoration.lineThrough,
-                            decorationColor: Colors.black.withValues(alpha: 0.3))),
+                    Text(
+                      '￥$orig',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.black.withValues(alpha: 0.3),
+                        decoration: TextDecoration.lineThrough,
+                        decorationColor: Colors.black.withValues(alpha: 0.3),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -194,10 +237,11 @@ class _SubPageState extends State<SubPage> {
                     shape: BoxShape.circle,
                     color: selected ? _magenta : Colors.transparent,
                     border: Border.all(
-                        color: selected
-                            ? _magenta
-                            : Colors.black.withValues(alpha: 0.3),
-                        width: 2),
+                      color: selected
+                          ? _magenta
+                          : Colors.black.withValues(alpha: 0.3),
+                      width: 2,
+                    ),
                   ),
                   child: selected
                       ? const Icon(Icons.check, size: 15, color: Colors.white)

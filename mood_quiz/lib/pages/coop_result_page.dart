@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../data/coop_repository.dart';
-import '../widgets/share_sheet.dart';
+import '../data/shared_session_repository.dart';
 import 'quiz_intro_page.dart';
 import 'quiz_questions_page.dart';
 
@@ -20,8 +22,10 @@ const _youBox = Color(0xFFE5F0FF);
 const _partnerBox = Color(0xFFFFF9D4);
 
 /// 让被邀请者填名字（简易输入弹窗）；返回 null = 取消。
-Future<String?> promptDisplayName(BuildContext context,
-    {String title = 'Your name'}) {
+Future<String?> promptDisplayName(
+  BuildContext context, {
+  String title = 'Your name',
+}) {
   final ctrl = TextEditingController();
   return showDialog<String>(
     context: context,
@@ -36,13 +40,16 @@ Future<String?> promptDisplayName(BuildContext context,
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         TextButton(
-            onPressed: () {
-              final v = ctrl.text.trim();
-              if (v.isNotEmpty) Navigator.pop(context, v);
-            },
-            child: const Text('OK')),
+          onPressed: () {
+            final v = ctrl.text.trim();
+            if (v.isNotEmpty) Navigator.pop(context, v);
+          },
+          child: const Text('OK'),
+        ),
       ],
     ),
   );
@@ -60,19 +67,21 @@ class CoopResultPage extends StatefulWidget {
     this.partnerAnswers,
   });
 
-  factory CoopResultPage.initiator(
-          {required QuizIntroData data, required List<int> myAnswers}) =>
-      CoopResultPage._(data: data, myAnswers: myAnswers);
+  factory CoopResultPage.initiator({
+    required QuizIntroData data,
+    required List<int> myAnswers,
+  }) => CoopResultPage._(data: data, myAnswers: myAnswers);
 
-  factory CoopResultPage.invited(
-          {required QuizIntroData data, required CoopResult result}) =>
-      CoopResultPage._(
-        data: data,
-        myAnswers: result.myAnswers,
-        myName: result.myName,
-        partnerName: result.partnerName,
-        partnerAnswers: result.partnerAnswers,
-      );
+  factory CoopResultPage.invited({
+    required QuizIntroData data,
+    required CoopResult result,
+  }) => CoopResultPage._(
+    data: data,
+    myAnswers: result.myAnswers,
+    myName: result.myName,
+    partnerName: result.partnerName,
+    partnerAnswers: result.partnerAnswers,
+  );
 
   final QuizIntroData data;
   final List<int> myAnswers;
@@ -88,12 +97,22 @@ class CoopResultPage extends StatefulWidget {
 
 class _CoopResultPageState extends State<CoopResultPage> {
   final _repo = LocalCoopRepository();
+  final _sessions = SharedSessionRepository();
   String? _myName;
+  String? _partnerName;
+  List<int>? _partnerAnswers;
+  String? _sessionToken;
+  Timer? _pollTimer;
+  bool _completionAnnounced = false;
+
+  bool get _waiting => _partnerAnswers == null;
 
   @override
   void initState() {
     super.initState();
     _myName = widget.myName;
+    _partnerName = widget.partnerName;
+    _partnerAnswers = widget.partnerAnswers;
     if (_myName == null) {
       _repo.getName().then((n) {
         if (mounted) setState(() => _myName = n);
@@ -101,8 +120,14 @@ class _CoopResultPageState extends State<CoopResultPage> {
     }
   }
 
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
   int get _matchCount {
-    final p = widget.partnerAnswers;
+    final p = _partnerAnswers;
     if (p == null) return 0;
     var n = 0;
     for (var i = 0; i < widget.myAnswers.length && i < p.length; i++) {
@@ -120,13 +145,84 @@ class _CoopResultPageState extends State<CoopResultPage> {
       await _repo.setName(name);
       if (mounted) setState(() => _myName = name);
     }
+    try {
+      _sessionToken ??= await _sessions.create(
+        kind: 'coop_quiz',
+        contextId: widget.data.sectionId,
+        initiatorName: name,
+        initiatorPayload: {'answers': widget.myAnswers},
+      );
+      _startPolling();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not sync this invite. Please try again.'),
+          ),
+        );
+      }
+      return;
+    }
     final payload = CoopPayload(
       section: widget.data.sectionId,
       name: name,
       answers: widget.myAnswers,
+      sessionToken: _sessionToken,
     ).encode();
     if (!mounted) return;
-    showShareSheet(context, link: buildCoopLink(payload));
+    final link = buildCoopLink(payload);
+    await Clipboard.setData(ClipboardData(text: link));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Link copied! Paste it to your friend to invite them. You can answer the quiz together.',
+          ),
+          duration: Duration(seconds: 3),
+        ),
+      );
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _pollForPartner(),
+    );
+    _pollForPartner();
+  }
+
+  Future<void> _pollForPartner() async {
+    final token = _sessionToken;
+    if (token == null) return;
+    try {
+      final session = await _sessions.get(token);
+      if (!mounted || session == null || !session.isCompleted) return;
+      final rawAnswers = session.guestPayload?['answers'];
+      if (rawAnswers is! List) return;
+      setState(() {
+        _partnerName = session.guestName ?? 'Your partner';
+        _partnerAnswers = rawAnswers.map((e) => e as int).toList();
+      });
+      if (!_completionAnnounced) {
+        _completionAnnounced = true;
+        _pollTimer?.cancel();
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Your partner has completed the quiz - take a look!',
+              ),
+              duration: Duration(seconds: 5),
+            ),
+          );
+      }
+    } catch (_) {
+      // Keep polling after temporary network errors.
+    }
   }
 
   @override
@@ -141,10 +237,12 @@ class _CoopResultPageState extends State<CoopResultPage> {
             top: 0,
             width: 393,
             height: 262,
-            child: Image.asset('assets/quiz/rc_header.png',
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) =>
-                    const ColoredBox(color: Color(0xFFEDEAF6))),
+            child: Image.asset(
+              'assets/quiz/rc_header.png',
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) =>
+                  const ColoredBox(color: Color(0xFFEDEAF6)),
+            ),
           ),
           // 关闭热区（右上角 X）
           Positioned(
@@ -179,19 +277,27 @@ class _CoopResultPageState extends State<CoopResultPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Results',
-                      style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: _titleColor)),
+                  const Text(
+                    'Results',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: _titleColor,
+                    ),
+                  ),
                   const SizedBox(height: 14),
-                  Text(_summary(),
-                      style: const TextStyle(
-                          fontSize: 15, height: 1.5, color: _titleColor)),
+                  Text(
+                    _summary(),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      height: 1.5,
+                      color: _titleColor,
+                    ),
+                  ),
                   const SizedBox(height: 26),
                   _stars(),
                   const SizedBox(height: 26),
-                  if (widget.waiting) ..._waitingBody() else ..._comparisonBody(),
+                  if (_waiting) ..._waitingBody() else ..._comparisonBody(),
                 ],
               ),
             ),
@@ -202,12 +308,12 @@ class _CoopResultPageState extends State<CoopResultPage> {
   }
 
   String _summary() {
-    if (widget.waiting) {
+    if (_waiting) {
       return 'Waiting for your partner to take the quiz. Share the link below '
           'to invite them — you\'ll see how your answers compare once they finish.';
     }
     final pct = (_matchCount * 100 / widget.myAnswers.length).round();
-    return 'You and ${widget.partnerName} matched on $_matchCount of '
+    return 'You and $_partnerName matched on $_matchCount of '
         '${widget.myAnswers.length} ($pct%). This represents the objective '
         'balance of effort and emotional investment in your current connection.';
   }
@@ -216,10 +322,16 @@ class _CoopResultPageState extends State<CoopResultPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _star('assets/quiz/star_you.png', 'assets/treehole/avatar_ai.png',
-            _myName ?? 'You'),
-        _star('assets/quiz/star_partner.png',
-            'assets/treehole/avatar_user.png', widget.partnerName ?? 'Waiting…'),
+        _star(
+          'assets/quiz/star_you.png',
+          'assets/treehole/avatar_ai.png',
+          _myName ?? 'You',
+        ),
+        _star(
+          'assets/quiz/star_partner.png',
+          'assets/treehole/avatar_user.png',
+          _partnerName ?? 'Waiting…',
+        ),
       ],
     );
   }
@@ -227,26 +339,33 @@ class _CoopResultPageState extends State<CoopResultPage> {
   Widget _star(String starAsset, String iconAsset, String name) {
     return Column(
       children: [
-        Image.asset(starAsset,
-            width: 118,
-            height: 118,
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => const SizedBox(width: 118, height: 118)),
+        Image.asset(
+          starAsset,
+          width: 118,
+          height: 118,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) => const SizedBox(width: 118, height: 118),
+        ),
         const SizedBox(height: 4),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset(iconAsset,
-                width: 20,
-                height: 20,
-                fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => const SizedBox(width: 20)),
+            Image.asset(
+              iconAsset,
+              width: 20,
+              height: 20,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const SizedBox(width: 20),
+            ),
             const SizedBox(width: 5),
-            Text(name,
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: _titleColor)),
+            Text(
+              name,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _titleColor,
+              ),
+            ),
           ],
         ),
       ],
@@ -262,25 +381,37 @@ class _CoopResultPageState extends State<CoopResultPage> {
           height: 52,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-              color: const Color(0xFFFFE229),
-              borderRadius: BorderRadius.circular(24.5)),
-          child: const Text('Invite your partner',
-              style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w600, color: _magenta)),
+            color: const Color(0xFFFFE229),
+            borderRadius: BorderRadius.circular(24.5),
+          ),
+          child: const Text(
+            'Invite your partner',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: _magenta,
+            ),
+          ),
         ),
       ),
       const SizedBox(height: 14),
       const Text(
-          'View Comparison unlocks once your partner completes the quiz.',
-          style: TextStyle(fontSize: 13, color: Colors.black45)),
+        'View Comparison unlocks once your partner completes the quiz.',
+        style: TextStyle(fontSize: 13, color: Colors.black45),
+      ),
     ];
   }
 
   List<Widget> _comparisonBody() {
     return [
-      const Text('View Comparison',
-          style: TextStyle(
-              fontSize: 22, fontWeight: FontWeight.w700, color: _titleColor)),
+      const Text(
+        'View Comparison',
+        style: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          color: _titleColor,
+        ),
+      ),
       const SizedBox(height: 16),
       for (var i = 0; i < widget.data.questions.length; i++)
         Padding(
@@ -293,7 +424,7 @@ class _CoopResultPageState extends State<CoopResultPage> {
   Widget _comparisonCard(int i) {
     final q = widget.data.questions[i];
     final my = widget.myAnswers[i];
-    final their = widget.partnerAnswers![i];
+    final their = _partnerAnswers![i];
     final agree = my == their;
     return Container(
       width: double.infinity,
@@ -308,15 +439,20 @@ class _CoopResultPageState extends State<CoopResultPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${i + 1}.',
-                  style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: _titleColor)),
+              Text(
+                '${i + 1}.',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: _titleColor,
+                ),
+              ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(q.text,
-                    style: const TextStyle(fontSize: 15, color: _titleColor)),
+                child: Text(
+                  q.text,
+                  style: const TextStyle(fontSize: 15, color: _titleColor),
+                ),
               ),
             ],
           ),
@@ -326,11 +462,12 @@ class _CoopResultPageState extends State<CoopResultPage> {
             children: [
               Expanded(
                 child: _answerBox(
-                    _youBox,
-                    'assets/treehole/avatar_ai.png',
-                    'You answered:',
-                    q.options[my],
-                    agree),
+                  _youBox,
+                  'assets/treehole/avatar_ai.png',
+                  'You answered:',
+                  q.options[my],
+                  agree,
+                ),
               ),
               Container(
                 width: 30,
@@ -338,18 +475,23 @@ class _CoopResultPageState extends State<CoopResultPage> {
                 margin: const EdgeInsets.symmetric(horizontal: 6),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: agree ? _green : const Color(0xFFF26D6D)),
-                child: Icon(agree ? Icons.check : Icons.close,
-                    size: 18, color: Colors.white),
+                  shape: BoxShape.circle,
+                  color: agree ? _green : const Color(0xFFF26D6D),
+                ),
+                child: Icon(
+                  agree ? Icons.check : Icons.close,
+                  size: 18,
+                  color: Colors.white,
+                ),
               ),
               Expanded(
                 child: _answerBox(
-                    _partnerBox,
-                    'assets/treehole/avatar_user.png',
-                    '${widget.partnerName} answered:',
-                    q.options[their],
-                    agree),
+                  _partnerBox,
+                  'assets/treehole/avatar_user.png',
+                  '$_partnerName answered:',
+                  q.options[their],
+                  agree,
+                ),
               ),
             ],
           ),
@@ -359,29 +501,40 @@ class _CoopResultPageState extends State<CoopResultPage> {
   }
 
   Widget _answerBox(
-      Color bg, String icon, String who, String option, bool agree) {
+    Color bg,
+    String icon,
+    String who,
+    String option,
+    bool agree,
+  ) {
     return Container(
       height: 79,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(5)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(5),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-              Image.asset(icon,
-                  width: 16,
-                  height: 16,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => const SizedBox(width: 16)),
+              Image.asset(
+                icon,
+                width: 16,
+                height: 16,
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => const SizedBox(width: 16),
+              ),
               const SizedBox(width: 4),
               Expanded(
-                child: Text(who,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 10, color: _titleColor)),
+                child: Text(
+                  who,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 10, color: _titleColor),
+                ),
               ),
             ],
           ),
@@ -391,10 +544,12 @@ class _CoopResultPageState extends State<CoopResultPage> {
               borderRadius: BorderRadius.circular(11),
               border: Border.all(color: agree ? _green : _magenta),
             ),
-            child: Text(option,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 10, color: _titleColor)),
+            child: Text(
+              option,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10, color: _titleColor),
+            ),
           ),
         ],
       ),
@@ -413,6 +568,7 @@ class InvitedQuizFlow extends StatefulWidget {
 
 class _InvitedQuizFlowState extends State<InvitedQuizFlow> {
   final _repo = LocalCoopRepository();
+  final _sessions = SharedSessionRepository();
   final _ctrl = TextEditingController();
   QuizIntroData? _section;
   bool _named = false;
@@ -449,10 +605,32 @@ class _InvitedQuizFlowState extends State<InvitedQuizFlow> {
       partnerAnswers: widget.payload.answers,
     );
     await _repo.saveResult(result);
+    final token = widget.payload.sessionToken;
+    if (token != null) {
+      try {
+        await _sessions.complete(
+          token: token,
+          guestName: name,
+          guestPayload: {'answers': myAnswers},
+        );
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Your result is saved here, but could not notify your partner. Please try again.',
+              ),
+            ),
+          );
+        }
+      }
+    }
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (_) =>
-            CoopResultPage.invited(data: _section!, result: result)));
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => CoopResultPage.invited(data: _section!, result: result),
+      ),
+    );
   }
 
   @override
@@ -476,16 +654,21 @@ class _InvitedQuizFlowState extends State<InvitedQuizFlow> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('${widget.payload.name} invited you',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15, color: Colors.black54)),
+            Text(
+              '${widget.payload.name} invited you',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 15, color: Colors.black54),
+            ),
             const SizedBox(height: 8),
-            Text('to compare your ${section.title}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: _titleColor)),
+            Text(
+              'to compare your ${section.title}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: _titleColor,
+              ),
+            ),
             const SizedBox(height: 40),
             TextField(
               controller: _ctrl,
@@ -497,8 +680,9 @@ class _InvitedQuizFlowState extends State<InvitedQuizFlow> {
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none),
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -508,13 +692,17 @@ class _InvitedQuizFlowState extends State<InvitedQuizFlow> {
                 height: 52,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                    color: const Color(0xFFFFE229),
-                    borderRadius: BorderRadius.circular(24.5)),
-                child: const Text('Start quiz',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: _magenta)),
+                  color: const Color(0xFFFFE229),
+                  borderRadius: BorderRadius.circular(24.5),
+                ),
+                child: const Text(
+                  'Start quiz',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _magenta,
+                  ),
+                ),
               ),
             ),
           ],

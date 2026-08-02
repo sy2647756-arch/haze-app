@@ -1,43 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mood_quiz/pages/counseling_page.dart';
+import 'package:mood_quiz/services/kimi_service.dart';
 
-Future<void> _pump(WidgetTester tester, Widget page) async {
+class _FakeCounselor extends KimiService {
+  const _FakeCounselor();
+
+  @override
+  Future<String> replyAsCounselor(
+    List<ChatMessage> history, {
+    required String therapistName,
+  }) async =>
+      'I hear how uncertain that feels. What facts do you have right now?';
+}
+
+Future<void> pumpPage(WidgetTester tester, Widget page) async {
   tester.view.physicalSize = const Size(393, 852);
-  tester.view.devicePixelRatio = 1.0;
+  tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   await tester.pumpWidget(MaterialApp(home: page));
   await tester.pump();
 }
 
 void main() {
-  testWidgets('counseling list shows therapists with reviews', (tester) async {
-    await _pump(tester, const CounselingPage());
-    expect(find.text('Counseling'), findsOneWidget);
-    expect(find.text('Max'), findsOneWidget);
-    expect(find.text('94% Positive Reviews'), findsOneWidget);
-    expect(find.text('Choose'), findsWidgets);
-  });
-
-  testWidgets('choosing a therapist opens the chat with seed messages',
-      (tester) async {
-    await _pump(tester, const CounselingPage());
+  testWidgets('choosing a therapist opens an empty conversation', (
+    tester,
+  ) async {
+    await pumpPage(tester, const CounselingPage());
     await tester.tap(find.text('Choose').first);
     await tester.pumpAndSettle();
     expect(find.byType(CounselingChatPage), findsOneWidget);
-    expect(find.textContaining('Consultation for reference only'),
-        findsOneWidget);
-    expect(find.textContaining('My mind is racing'), findsOneWidget);
-    expect(find.textContaining('I hear your anxiety'), findsOneWidget);
+    expect(find.textContaining('Start by sharing'), findsOneWidget);
   });
 
-  testWidgets('typing in counseling chat echoes a user bubble', (tester) async {
-    await _pump(tester,
-        const CounselingChatPage(therapist: Therapist('Max',
-            'assets/counseling/max.png', '94% Positive Reviews', '5000+')));
-    await tester.enterText(find.byType(TextField), 'thank you');
+  testWidgets('therapist responds only after the user sends a message', (
+    tester,
+  ) async {
+    await pumpPage(
+      tester,
+      const CounselingChatPage(
+        therapist: Therapist(
+          'Max',
+          'assets/counseling/max.png',
+          '94% Positive Reviews',
+          '5000+',
+        ),
+        service: _FakeCounselor(),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'They left me on read.');
     await tester.testTextInput.receiveAction(TextInputAction.send);
-    await tester.pump();
-    expect(find.text('thank you'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('They left me on read.'), findsOneWidget);
+    expect(find.textContaining('What facts do you have'), findsOneWidget);
   });
 }

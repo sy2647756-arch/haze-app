@@ -42,6 +42,15 @@ dependencies:
   intl: ^0.19.0              # 日期格式
   http: ^1.2.2              # AI Tree Hole 调用 Kimi(Moonshot) API
   supabase_flutter: ^2.8.0 # 后端：账户/日记上云/Co-op/媒体
+  just_audio: ^0.10.6        # 冥想背景音乐（Web / mobile）
+  geolocator: ^14.0.3
+  video_player: ^2.11.1
+  web: ^1.1.1
+  flutter_map: ^8.3.1
+  latlong2: ^0.10.1
+  image_picker: ^1.1.2
+  speech_to_text: ^7.4.0
+  share_plus: ^13.3.0
 
 dev_dependencies:
   flutter_test:
@@ -80,6 +89,9 @@ flutter:
     - assets/treehole/
     - assets/quiz/
     - assets/counseling/
+    - assets/audio/
+    - assets/location/
+    - assets/onboarding/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

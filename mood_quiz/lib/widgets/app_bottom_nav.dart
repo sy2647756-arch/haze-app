@@ -29,9 +29,10 @@ class AppBottomNav extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.92),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, -2)),
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
+          ),
         ],
       ),
       child: SafeArea(
@@ -46,18 +47,26 @@ class AppBottomNav extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const SizedBox(height: 8),
-                      Image.asset(_tabs[i].$1,
+                      AnimatedScale(
+                        scale: i == currentIndex ? 1.45 : 1,
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOutBack,
+                        child: Image.asset(
+                          _tabs[i].$1,
                           height: 30,
                           fit: BoxFit.contain,
                           errorBuilder: (_, _, _) =>
-                              const Icon(Icons.circle_outlined, size: 26)),
+                              const Icon(Icons.circle_outlined, size: 26),
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         _tabs[i].$2,
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight:
-                              i == currentIndex ? FontWeight.w600 : FontWeight.normal,
+                          fontWeight: i == currentIndex
+                              ? FontWeight.w600
+                              : FontWeight.normal,
                           color: i == currentIndex ? _active : Colors.black,
                         ),
                       ),

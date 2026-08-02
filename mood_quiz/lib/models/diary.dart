@@ -7,6 +7,7 @@ class Diary {
     required this.weather,
     required this.content,
     this.locationName,
+    this.mediaUrls = const [],
     this.isBackfilled = false,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -16,6 +17,7 @@ class Diary {
   final Weather weather;
   final String content;
   final String? locationName;
+  final List<String> mediaUrls;
   final bool isBackfilled;
   final DateTime createdAt;
 
@@ -36,20 +38,24 @@ class Diary {
   String get dateKey => keyOf(date);
 
   Map<String, dynamic> toJson() => {
-        'date': dateKey,
-        'weather': weather.key,
-        'content': content,
-        'location_name': locationName,
-        'is_backfilled': isBackfilled,
-        'created_at': createdAt.toIso8601String(),
-      };
+    'date': dateKey,
+    'weather': weather.key,
+    'content': content,
+    'location_name': locationName,
+    'image_urls': mediaUrls,
+    'is_backfilled': isBackfilled,
+    'created_at': createdAt.toIso8601String(),
+  };
 
   factory Diary.fromJson(Map<String, dynamic> j) => Diary(
-        date: DateTime.parse(j['date'] as String),
-        weather: Weather.fromKey(j['weather'] as String),
-        content: (j['content'] as String?) ?? '',
-        locationName: j['location_name'] as String?,
-        isBackfilled: (j['is_backfilled'] as bool?) ?? false,
-        createdAt: DateTime.parse(j['created_at'] as String),
-      );
+    date: DateTime.parse(j['date'] as String),
+    weather: Weather.fromKey(j['weather'] as String),
+    content: (j['content'] as String?) ?? '',
+    locationName: j['location_name'] as String?,
+    mediaUrls:
+        (j['image_urls'] as List?)?.map((e) => e.toString()).toList() ??
+        const [],
+    isBackfilled: (j['is_backfilled'] as bool?) ?? false,
+    createdAt: DateTime.parse(j['created_at'] as String),
+  );
 }

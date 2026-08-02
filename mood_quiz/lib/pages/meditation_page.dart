@@ -1,43 +1,150 @@
 import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
+import '../data/app_state_store.dart';
+import '../widgets/app_bottom_nav.dart';
+
+part 'grounding_experience.dart';
 
 /// 让可滚动组件在 Web 上也能用鼠标拖动（Flutter 默认只认触摸）。
 class _MouseDragScrollBehavior extends MaterialScrollBehavior {
   @override
   Set<PointerDeviceKind> get dragDevices => {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.trackpad,
-      };
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+  };
 }
 
 /// 2-min Meditation 子功能：方法选择 → 练习 → Feel Better? → Cozy 页。
 /// 还原 Figma 109:1613 的卡片选择流程。
-class MeditationPage extends StatelessWidget {
-  const MeditationPage({super.key});
+/// Shared background-music player for one meditation session.
+class MeditationAudioController {
+  MeditationAudioController({
+    this.available = true,
+    this.asset = 'assets/audio/meditation_relaxation.mp3',
+  });
 
+  final bool available;
+  final String asset;
+  AudioPlayer? _player;
+  Future<void>? _prepareFuture;
+  bool _ready = false;
+  bool _enabled = true;
+
+  bool get enabled => _enabled;
+
+  Future<void> prepare() => _prepareFuture ??= _prepare();
+
+  Future<void> _prepare() async {
+    if (!available) return;
+    try {
+      final player = _player ??= AudioPlayer();
+      await player.setLoopMode(LoopMode.one);
+      await player.setVolume(0.32);
+      await player.setAsset(asset);
+      _ready = true;
+    } catch (error) {
+      debugPrint('Unable to prepare meditation music: $error');
+    }
+  }
+
+  Future<void> play() async {
+    _enabled = true;
+    await prepare();
+    if (_ready) unawaited(_player!.play());
+  }
+
+  Future<void> pause() async {
+    if (_player == null) return;
+    try {
+      await _player!.pause();
+    } catch (error) {
+      debugPrint('Unable to pause meditation music: $error');
+    }
+  }
+
+  Future<bool> toggle() async {
+    _enabled = !_enabled;
+    if (_enabled) {
+      await play();
+    } else {
+      await pause();
+    }
+    return _enabled;
+  }
+
+  Future<void> dispose() async {
+    if (_player == null) return;
+    try {
+      await _player!.dispose();
+    } catch (error) {
+      debugPrint('Unable to dispose meditation music: $error');
+    }
+  }
+}
+
+class MeditationPage extends StatefulWidget {
+  const MeditationPage({super.key, this.enableAudio = true});
+
+  final bool enableAudio;
+
+  @override
+  State<MeditationPage> createState() => _MeditationPageState();
+}
+
+class _MeditationPageState extends State<MeditationPage> {
   static const _methods = <MeditationMethod>[
     MeditationMethod(
       title: 'Tidal Rhythm',
       subtitle: 'Based on 4-7-8 Parasympathetic Regulation',
-      asset: 'assets/meditation/tidal.png',
+      asset: 'assets/meditation/tidal_latest.png',
       kind: MeditationKind.breathing,
     ),
     MeditationMethod(
       title: 'Reality Anchor',
       subtitle: 'Based on CBT 5-4-3-2-1 Grounding Technique',
-      asset: 'assets/meditation/anchor.png',
+      asset: 'assets/meditation/anchor_latest.png',
       kind: MeditationKind.grounding,
     ),
   ];
 
+  late final Map<MeditationKind, MeditationAudioController> _audioByKind;
+
+  @override
+  void initState() {
+    super.initState();
+    _audioByKind = {
+      MeditationKind.breathing: MeditationAudioController(
+        available: widget.enableAudio,
+        asset: 'assets/audio/meditation_relaxation.mp3',
+      ),
+      MeditationKind.grounding: MeditationAudioController(
+        available: widget.enableAudio,
+        asset: 'assets/audio/reality_anchor_pond.mp3',
+      ),
+    };
+  }
+
+  @override
+  void dispose() {
+    for (final audio in _audioByKind.values) {
+      unawaited(audio.dispose());
+    }
+    super.dispose();
+  }
+
   void _start(BuildContext context, MeditationMethod m) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => m.kind == MeditationKind.breathing
-          ? BreathingPage(method: m)
-          : GroundingPage(method: m),
-    ));
+    final audio = _audioByKind[m.kind]!;
+    unawaited(audio.play());
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => m.kind == MeditationKind.breathing
+            ? BreathingPage(method: m, audio: audio)
+            : GroundingPage(method: m, audio: audio),
+      ),
+    );
   }
 
   @override
@@ -60,11 +167,14 @@ class MeditationPage extends StatelessWidget {
               top: 72,
               width: 393,
               child: Center(
-                child: Text('2-min Meditation',
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black)),
+                child: Text(
+                  '2-min Meditation',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
               ),
             ),
             Positioned(
@@ -72,8 +182,11 @@ class MeditationPage extends StatelessWidget {
               top: 72,
               child: GestureDetector(
                 onTap: () => Navigator.of(context).maybePop(),
-                child: Icon(Icons.chevron_left,
-                    size: 28, color: Colors.black.withValues(alpha: 0.7)),
+                child: Icon(
+                  Icons.chevron_left,
+                  size: 28,
+                  color: Colors.black.withValues(alpha: 0.7),
+                ),
               ),
             ),
             // 提示
@@ -82,10 +195,13 @@ class MeditationPage extends StatelessWidget {
               top: 120,
               width: 393,
               child: Center(
-                child: Text('Swipe to choose a method',
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.black.withValues(alpha: 0.45))),
+                child: Text(
+                  'Swipe to choose a method',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.black.withValues(alpha: 0.45),
+                  ),
+                ),
               ),
             ),
             // 方法卡横向轮播
@@ -122,9 +238,10 @@ class MeditationPage extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             boxShadow: const [
               BoxShadow(
-                  color: Color(0x26000000),
-                  blurRadius: 15,
-                  offset: Offset(0, 6)),
+                color: Color(0x26000000),
+                blurRadius: 15,
+                offset: Offset(0, 6),
+              ),
             ],
           ),
           child: Column(
@@ -132,17 +249,24 @@ class MeditationPage extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(21, 21, 21, 6),
-                child: Text(m.title,
-                    style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xCC000000))),
+                child: Text(
+                  m.title,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xCC000000),
+                  ),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 21),
-                child: Text(m.subtitle,
-                    style: const TextStyle(
-                        fontSize: 13, color: Color(0xFF808080))),
+                child: Text(
+                  m.subtitle,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF808080),
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
               Expanded(
@@ -150,11 +274,13 @@ class MeditationPage extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(14),
-                    child: Image.asset(m.asset,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        errorBuilder: (_, _, _) => const ColoredBox(
-                            color: Color(0x11000000))),
+                    child: Image.asset(
+                      m.asset,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      errorBuilder: (_, _, _) =>
+                          const ColoredBox(color: Color(0x11000000)),
+                    ),
                   ),
                 ),
               ),
@@ -167,11 +293,14 @@ class MeditationPage extends StatelessWidget {
                     color: const Color(0xFF9D9FE5),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text('Start',
-                      style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
+                  child: const Text(
+                    'Start',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -185,11 +314,12 @@ class MeditationPage extends StatelessWidget {
 enum MeditationKind { breathing, grounding }
 
 class MeditationMethod {
-  const MeditationMethod(
-      {required this.title,
-      required this.subtitle,
-      required this.asset,
-      required this.kind});
+  const MeditationMethod({
+    required this.title,
+    required this.subtitle,
+    required this.asset,
+    required this.kind,
+  });
   final String title;
   final String subtitle;
   final String asset;
@@ -199,8 +329,9 @@ class MeditationMethod {
 // ============ Tidal Rhythm：4-7-8 呼吸动画 ============
 
 class BreathingPage extends StatefulWidget {
-  const BreathingPage({super.key, required this.method});
+  const BreathingPage({super.key, required this.method, required this.audio});
   final MeditationMethod method;
+  final MeditationAudioController audio;
 
   @override
   State<BreathingPage> createState() => _BreathingPageState();
@@ -208,13 +339,9 @@ class BreathingPage extends StatefulWidget {
 
 class _BreathingPageState extends State<BreathingPage>
     with SingleTickerProviderStateMixin {
-  // 4-7-8：吸气 4s、屏息 7s、呼气 8s。总时长约 2 分钟（6 个循环 = 114s）。
-  static const _phases = [
-    ('Breathe in', 4),
-    ('Hold', 7),
-    ('Breathe out', 8),
-  ];
-  static const _totalCycles = 6;
+  // 4-7-8：吸气 4s、屏息 7s、呼气 8s。完成 3 个循环后进入 Cozy Page。
+  static const _phases = [('Breathe in', 4), ('Hold', 7), ('Breathe out', 8)];
+  static const _totalCycles = 3;
 
   late final AnimationController _ctrl;
   int _phaseIndex = 0;
@@ -222,11 +349,15 @@ class _BreathingPageState extends State<BreathingPage>
   int _remaining = 4;
   Timer? _timer;
   bool _done = false;
+  bool _music = true;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 4));
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    );
     _startPhase(0);
   }
 
@@ -273,23 +404,11 @@ class _BreathingPageState extends State<BreathingPage>
     _timer?.cancel();
     setState(() => _done = true);
     if (!mounted) return;
-    final better = await showFeelBetterDialog(context);
-    if (!mounted) return;
-    if (better == true) {
-      await showCozyPage(context);
-      if (mounted) {
-        Navigator.of(context)
-          ..pop() // 关闭本练习页
-          ..maybePop(); // 回到选择页
-      }
-    } else {
-      // 再来一次
-      setState(() {
-        _done = false;
-        _cycle = 0;
-      });
-      _ctrl.value = 0;
-      _startPhase(0);
+    await showCozyPage(context);
+    if (mounted) {
+      Navigator.of(context)
+        ..pop()
+        ..maybePop();
     }
   }
 
@@ -297,6 +416,7 @@ class _BreathingPageState extends State<BreathingPage>
   void dispose() {
     _timer?.cancel();
     _ctrl.dispose();
+    unawaited(widget.audio.pause());
     super.dispose();
   }
 
@@ -304,90 +424,128 @@ class _BreathingPageState extends State<BreathingPage>
   Widget build(BuildContext context) {
     final label = _phases[_phaseIndex].$1;
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFEFEE), Color(0xFF9D9FE5)],
-          ),
-        ),
-        child: Stack(
-          children: [
-            // 关闭
-            Positioned(
-              right: 18,
-              top: 66,
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).maybePop(),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.close, size: 20, color: Colors.black54),
-                ),
+      backgroundColor: const Color(0xFFFFEFEE),
+      body: SizedBox.expand(
+        child: ClipRect(
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFFFEFEE), Color(0xFF9D9FE5)],
               ),
             ),
-            // 呼吸圆 + 文案
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 260,
-                    height: 260,
-                    child: AnimatedBuilder(
-                      animation: _ctrl,
-                      builder: (_, _) {
-                        final t = Curves.easeInOut.transform(_ctrl.value);
-                        final scale = 0.55 + 0.45 * t; // 0.55~1.0
-                        return Center(
-                          child: Container(
-                            width: 260 * scale,
-                            height: 260 * scale,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(colors: [
-                                Colors.white.withValues(alpha: 0.9),
-                                Colors.white.withValues(alpha: 0.35),
-                              ]),
-                              boxShadow: [
-                                BoxShadow(
-                                    color: Colors.white.withValues(alpha: 0.6),
-                                    blurRadius: 40,
-                                    spreadRadius: 8),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                // 关闭
+                Positioned(
+                  right: 18,
+                  top: 66,
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(context).maybePop(),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        size: 20,
+                        color: Colors.black54,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 40),
-                  Text(label,
-                      style: const TextStyle(
+                ),
+                Positioned(
+                  right: 25,
+                  top: 116,
+                  child: GestureDetector(
+                    onTap: () async {
+                      final enabled = await widget.audio.toggle();
+                      if (mounted) setState(() => _music = enabled);
+                    },
+                    child: Icon(
+                      _music ? Icons.music_note : Icons.music_off,
+                      size: 28,
+                      color: const Color(0xFFC640A3),
+                    ),
+                  ),
+                ),
+                // 呼吸圆 + 文案
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 260,
+                        height: 260,
+                        child: AnimatedBuilder(
+                          animation: _ctrl,
+                          builder: (_, _) {
+                            final t = Curves.easeInOut.transform(_ctrl.value);
+                            final scale = 0.55 + 0.45 * t; // 0.55~1.0
+                            return Center(
+                              child: Container(
+                                width: 260 * scale,
+                                height: 260 * scale,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: RadialGradient(
+                                    colors: [
+                                      Colors.white.withValues(alpha: 0.9),
+                                      Colors.white.withValues(alpha: 0.35),
+                                    ],
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.6,
+                                      ),
+                                      blurRadius: 40,
+                                      spreadRadius: 8,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      Text(
+                        label,
+                        style: const TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xCC000000))),
-                  const SizedBox(height: 8),
-                  Text('$_remaining',
-                      style: TextStyle(
+                          color: Color(0xCC000000),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$_remaining',
+                        style: TextStyle(
                           fontSize: 20,
-                          color: Colors.black.withValues(alpha: 0.5))),
-                  const SizedBox(height: 6),
-                  Text('Cycle ${_done ? _totalCycles : _cycle + 1} / $_totalCycles',
-                      style: TextStyle(
+                          color: Colors.black.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Cycle ${_done ? _totalCycles : _cycle + 1} / $_totalCycles',
+                        style: TextStyle(
                           fontSize: 13,
-                          color: Colors.black.withValues(alpha: 0.4))),
-                ],
-              ),
+                          color: Colors.black.withValues(alpha: 0.4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -396,34 +554,54 @@ class _BreathingPageState extends State<BreathingPage>
 
 // ============ Reality Anchor：5-4-3-2-1 grounding ============
 
-class GroundingPage extends StatefulWidget {
-  const GroundingPage({super.key, required this.method});
+class LegacyGroundingPage extends StatefulWidget {
+  const LegacyGroundingPage({
+    super.key,
+    required this.method,
+    required this.audio,
+  });
   final MeditationMethod method;
+  final MeditationAudioController audio;
 
   @override
-  State<GroundingPage> createState() => _GroundingPageState();
+  State<LegacyGroundingPage> createState() => _LegacyGroundingPageState();
 }
 
-class _GroundingPageState extends State<GroundingPage>
+class _LegacyGroundingPageState extends State<LegacyGroundingPage>
     with TickerProviderStateMixin {
   // CBT 5-4-3-2-1 grounding：每步不同背景 + 文案，还原 Figma 五个 grounding 帧。
   // (count, title, text, backgroundAsset)
   static const _steps = [
-    (5, 'Visual Grounding',
-        'Look around and name 5 things you can clearly see to pull your focus outward.',
-        'assets/meditation/ground_visual.png'),
-    (4, 'Tactile Grounding',
-        'Notice 4 things you can physically touch, focusing on their texture or temperature.',
-        'assets/meditation/ground_tactile.png'),
-    (3, 'Auditory Grounding',
-        'Listen closely and identify 3 distinct sounds happening in your environment right now.',
-        'assets/meditation/ground_auditory.png'),
-    (2, 'Olfactory Grounding',
-        'Find 2 things you can smell, or try to recall your favorite calming scent.',
-        'assets/meditation/ground_olfactory.png'),
-    (1, 'Self Grounding',
-        'Take 1 slow breath and name one kind, gentle thing about yourself.',
-        'assets/meditation/ground_self.png'),
+    (
+      5,
+      'Visual Grounding',
+      'Look around and name 5 things you can clearly see to pull your focus outward.',
+      'assets/meditation/ground_visual.png',
+    ),
+    (
+      4,
+      'Tactile Grounding',
+      'Notice 4 things you can physically touch, focusing on their texture or temperature.',
+      'assets/meditation/ground_tactile.png',
+    ),
+    (
+      3,
+      'Auditory Grounding',
+      'Listen closely and identify 3 distinct sounds happening in your environment right now.',
+      'assets/meditation/ground_auditory.png',
+    ),
+    (
+      2,
+      'Olfactory Grounding',
+      'Find 2 things you can smell, or try to recall your favorite calming scent.',
+      'assets/meditation/ground_olfactory.png',
+    ),
+    (
+      1,
+      'Self Grounding',
+      'Take 1 slow breath and name one kind, gentle thing about yourself.',
+      'assets/meditation/ground_self.png',
+    ),
   ];
 
   int _i = 0;
@@ -437,18 +615,22 @@ class _GroundingPageState extends State<GroundingPage>
   @override
   void initState() {
     super.initState();
-    _bg = AnimationController(vsync: this, duration: const Duration(seconds: 20))
-      ..repeat(reverse: true);
+    _bg = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 20),
+    )..repeat(reverse: true);
     // 文字入场放慢（1.2s，缓慢淡入上移）
     _text = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1200))
-      ..forward();
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..forward();
   }
 
   @override
   void dispose() {
     _bg.dispose();
     _text.dispose();
+    unawaited(widget.audio.pause());
     super.dispose();
   }
 
@@ -509,11 +691,13 @@ class _GroundingPageState extends State<GroundingPage>
               },
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 700),
-                child: Image.asset(bgAsset,
-                    key: ValueKey(bgAsset),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink()),
+                child: Image.asset(
+                  bgAsset,
+                  key: ValueKey(bgAsset),
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
               ),
             ),
           ),
@@ -523,11 +707,14 @@ class _GroundingPageState extends State<GroundingPage>
             top: 72,
             width: 393,
             child: Center(
-              child: Text('2-min Meditation',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black)),
+              child: Text(
+                '2-min Meditation',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -535,8 +722,11 @@ class _GroundingPageState extends State<GroundingPage>
             top: 72,
             child: GestureDetector(
               onTap: () => Navigator.of(context).maybePop(),
-              child: Icon(Icons.chevron_left,
-                  size: 28, color: Colors.black.withValues(alpha: 0.7)),
+              child: Icon(
+                Icons.chevron_left,
+                size: 28,
+                color: Colors.black.withValues(alpha: 0.7),
+              ),
             ),
           ),
           // 音乐开关
@@ -544,9 +734,15 @@ class _GroundingPageState extends State<GroundingPage>
             left: 330,
             top: 106,
             child: GestureDetector(
-              onTap: () => setState(() => _music = !_music),
-              child: Icon(_music ? Icons.music_note : Icons.music_off,
-                  size: 28, color: const Color(0xFFC640A3)),
+              onTap: () async {
+                final enabled = await widget.audio.toggle();
+                if (mounted) setState(() => _music = enabled);
+              },
+              child: Icon(
+                _music ? Icons.music_note : Icons.music_off,
+                size: 28,
+                color: const Color(0xFFC640A3),
+              ),
             ),
           ),
           // 关闭
@@ -560,8 +756,9 @@ class _GroundingPageState extends State<GroundingPage>
                 height: 42,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    shape: BoxShape.circle),
+                  color: Colors.white.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
                 child: const Icon(Icons.close, size: 20, color: Colors.black54),
               ),
             ),
@@ -574,10 +771,10 @@ class _GroundingPageState extends State<GroundingPage>
             child: FadeTransition(
               opacity: _text,
               child: SlideTransition(
-                position: Tween(
-                        begin: const Offset(0, 0.15), end: Offset.zero)
+                position: Tween(begin: const Offset(0, 0.15), end: Offset.zero)
                     .animate(
-                        CurvedAnimation(parent: _text, curve: Curves.easeOut)),
+                      CurvedAnimation(parent: _text, curve: Curves.easeOut),
+                    ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -586,28 +783,40 @@ class _GroundingPageState extends State<GroundingPage>
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Flexible(
-                          child: Text(title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFC640A3))),
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFC640A3),
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 8),
                         // 大号剩余计数
-                        Text('$n',
-                            style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFFC640A3)
-                                    .withValues(alpha: 0.55))),
+                        Text(
+                          '$n',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(
+                              0xFFC640A3,
+                            ).withValues(alpha: 0.55),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
-                    Text(text,
-                        style: const TextStyle(
-                            fontSize: 16, height: 1.55, color: Color(0xFF5B5B5B))),
+                    Text(
+                      text,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        height: 1.55,
+                        color: Color(0xFF5B5B5B),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -650,16 +859,20 @@ class _GroundingPageState extends State<GroundingPage>
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: const [
                         BoxShadow(
-                            color: Color(0x33000000),
-                            blurRadius: 10,
-                            offset: Offset(0, 4)),
+                          color: Color(0x33000000),
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        ),
                       ],
                     ),
-                    child: Text(last ? 'Done' : 'Next',
-                        style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white)),
+                    child: Text(
+                      last ? 'Done' : 'Next',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -687,11 +900,14 @@ Future<bool?> showFeelBetterDialog(BuildContext context) {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Feel Better ?',
-                style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFC640A3))),
+            const Text(
+              'Feel Better ?',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFC640A3),
+              ),
+            ),
             const SizedBox(height: 28),
             Row(
               children: [
@@ -707,10 +923,13 @@ Future<bool?> showFeelBetterDialog(BuildContext context) {
                         borderRadius: BorderRadius.circular(23),
                         border: Border.all(color: const Color(0xFFC640A3)),
                       ),
-                      child: const Text('No',
-                          style: TextStyle(
-                              color: Color(0xFFC640A3),
-                              fontWeight: FontWeight.w600)),
+                      child: const Text(
+                        'No',
+                        style: TextStyle(
+                          color: Color(0xFFC640A3),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -726,10 +945,13 @@ Future<bool?> showFeelBetterDialog(BuildContext context) {
                         color: const Color(0xFFFFE229),
                         borderRadius: BorderRadius.circular(23),
                       ),
-                      child: const Text('Yes',
-                          style: TextStyle(
-                              color: Color(0xFFC640A3),
-                              fontWeight: FontWeight.w600)),
+                      child: const Text(
+                        'Yes',
+                        style: TextStyle(
+                          color: Color(0xFFC640A3),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -745,10 +967,9 @@ Future<bool?> showFeelBetterDialog(BuildContext context) {
 /// Cozy 结束页（还原 Figma 119:2442）：蓝→黄→白渐变 + 山顶插画 + 品红文案。
 /// 作为整页 push 出现，可返回或几秒后自动关闭。
 Future<void> showCozyPage(BuildContext context) {
-  return Navigator.of(context).push(MaterialPageRoute(
-    builder: (_) => const CozyPage(),
-    fullscreenDialog: true,
-  ));
+  return Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => const CozyPage(), fullscreenDialog: true),
+  );
 }
 
 class CozyPage extends StatefulWidget {
@@ -795,8 +1016,11 @@ class _CozyPageState extends State<CozyPage> {
             top: 71,
             child: GestureDetector(
               onTap: () => Navigator.of(context).maybePop(),
-              child: Icon(Icons.chevron_left,
-                  size: 28, color: Colors.black.withValues(alpha: 0.7)),
+              child: Icon(
+                Icons.chevron_left,
+                size: 28,
+                color: Colors.black.withValues(alpha: 0.7),
+              ),
             ),
           ),
           Positioned(
@@ -809,8 +1033,9 @@ class _CozyPageState extends State<CozyPage> {
                 height: 42,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    shape: BoxShape.circle),
+                  color: Colors.white.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
                 child: const Icon(Icons.close, size: 20, color: Colors.black54),
               ),
             ),
@@ -823,16 +1048,20 @@ class _CozyPageState extends State<CozyPage> {
               tween: Tween(begin: 0.9, end: 1.0),
               duration: const Duration(milliseconds: 900),
               curve: Curves.easeOut,
-              builder: (_, v, child) =>
-                  Opacity(opacity: ((v - 0.9) / 0.1).clamp(0, 1),
-                      child: Transform.scale(scale: v, child: child)),
+              builder: (_, v, child) => Opacity(
+                opacity: ((v - 0.9) / 0.1).clamp(0, 1),
+                child: Transform.scale(scale: v, child: child),
+              ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.asset('assets/meditation/cozy.png',
-                    width: 286,
-                    height: 286,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const SizedBox(width: 286, height: 286)),
+                child: Image.asset(
+                  'assets/meditation/cozy.png',
+                  width: 286,
+                  height: 286,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) =>
+                      const SizedBox(width: 286, height: 286),
+                ),
               ),
             ),
           ),
@@ -841,13 +1070,16 @@ class _CozyPageState extends State<CozyPage> {
             left: 37,
             top: 480,
             width: 319,
-            child: Text('The haze is gone. It was just a thought.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 24,
-                    height: 1.25,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFC640A3))),
+            child: Text(
+              'The haze is gone. It was just a thought.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 24,
+                height: 1.25,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFC640A3),
+              ),
+            ),
           ),
         ],
       ),

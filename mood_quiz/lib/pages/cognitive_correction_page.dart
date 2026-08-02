@@ -19,20 +19,20 @@ class CcRecord {
   final DateTime createdAt;
 
   Map<String, dynamic> toJson() => {
-        'thought': thought,
-        'distortions': distortions,
-        'evidence': evidence,
-        'newThought': newThought,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'thought': thought,
+    'distortions': distortions,
+    'evidence': evidence,
+    'newThought': newThought,
+    'createdAt': createdAt.toIso8601String(),
+  };
   factory CcRecord.fromJson(Map<String, dynamic> j) => CcRecord(
-        thought: j['thought'] as String? ?? '',
-        distortions:
-            (j['distortions'] as List?)?.map((e) => e as String).toList() ?? [],
-        evidence: j['evidence'] as String? ?? '',
-        newThought: j['newThought'] as String? ?? '',
-        createdAt: DateTime.parse(j['createdAt'] as String),
-      );
+    thought: j['thought'] as String? ?? '',
+    distortions:
+        (j['distortions'] as List?)?.map((e) => e as String).toList() ?? [],
+    evidence: j['evidence'] as String? ?? '',
+    newThought: j['newThought'] as String? ?? '',
+    createdAt: DateTime.parse(j['createdAt'] as String),
+  );
 }
 
 class CcRepo {
@@ -77,14 +77,26 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
 
   // 5 个认知偏差（图标 + 名称 + 描述）
   static const _biases = <(String, String, String)>[
-    ('assets/cc/mind_reading.png', 'Mind Reading',
-        'Assuming you know what others are thinking'),
-    ('assets/cc/catastrophizing.png', 'Catastrophizing',
-        'Blowing things out of proportion'),
-    ('assets/cc/all_or_nothing.png', 'All-or-Nothing Thinking',
-        'Seeing everything in extreme, binary terms'),
-    ('assets/cc/should.png', 'Should Statements',
-        'Holding rigid rules for yourself and others'),
+    (
+      'assets/cc/mind_reading.png',
+      'Mind Reading',
+      'Assuming you know what others are thinking',
+    ),
+    (
+      'assets/cc/catastrophizing.png',
+      'Catastrophizing',
+      'Blowing things out of proportion',
+    ),
+    (
+      'assets/cc/all_or_nothing.png',
+      'All-or-Nothing Thinking',
+      'Seeing everything in extreme, binary terms',
+    ),
+    (
+      'assets/cc/should.png',
+      'Should Statements',
+      'Holding rigid rules for yourself and others',
+    ),
     ('assets/cc/other.png', 'Other', 'Uncertain or none of the above'),
   ];
 
@@ -98,6 +110,8 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
 
   void _next() {
     if (_step == 0 && _thought.text.trim().isEmpty) return;
+    if (_step == 2 && _evidence.text.trim().isEmpty) return;
+    if (_step == 3 && _newThought.text.trim().isEmpty) return;
     setState(() => _step++);
   }
 
@@ -113,17 +127,23 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
 
   Future<void> _saveRecord() async {
     if (_saved) return; // 防重复保存
-    await CcRepo.add(CcRecord(
-      thought: _thought.text.trim(),
-      distortions: _distortions.toList(),
-      evidence: _evidence.text.trim(),
-      newThought: _newThought.text.trim(),
-      createdAt: DateTime.now(),
-    ));
+    await CcRepo.add(
+      CcRecord(
+        thought: _thought.text.trim(),
+        distortions: _distortions.toList(),
+        evidence: _evidence.text.trim(),
+        newThought: _newThought.text.trim(),
+        createdAt: DateTime.now(),
+      ),
+    );
     _saved = true;
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Saved to history'), duration: Duration(seconds: 1)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Saved — you can view it in Correction History.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -135,10 +155,12 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
         children: [
           // 云朵渐变背景
           Positioned.fill(
-            child: Image.asset('assets/cc/bg.png',
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) =>
-                    const ColoredBox(color: Color(0xFFEAF1FF))),
+            child: Image.asset(
+              'assets/cc/bg.png',
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) =>
+                  const ColoredBox(color: Color(0xFFEAF1FF)),
+            ),
           ),
           // 返回
           Positioned(
@@ -146,8 +168,11 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
             top: 66,
             child: GestureDetector(
               onTap: _back,
-              child: Icon(Icons.chevron_left,
-                  size: 28, color: Colors.black.withValues(alpha: 0.7)),
+              child: Icon(
+                Icons.chevron_left,
+                size: 28,
+                color: Colors.black.withValues(alpha: 0.7),
+              ),
             ),
           ),
           // 顶部标题
@@ -156,11 +181,14 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
             top: 69,
             width: 393,
             child: Center(
-              child: Text(_titles[_step],
-                  style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black)),
+              child: Text(
+                _titles[_step],
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
             ),
           ),
           // 第一步右上角：历史记录入口
@@ -169,10 +197,14 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
               right: 18,
               top: 64,
               child: GestureDetector(
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const CcHistoryPage())),
-                child: Icon(Icons.history,
-                    size: 26, color: _magenta.withValues(alpha: 0.85)),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CcHistoryPage()),
+                ),
+                child: Icon(
+                  Icons.history,
+                  size: 26,
+                  color: _magenta.withValues(alpha: 0.85),
+                ),
               ),
             ),
           // 完成屏不显示步骤条
@@ -225,11 +257,14 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
                       border: Border.all(color: Colors.white, width: 2),
                     ),
                     alignment: Alignment.center,
-                    child: Text('${i + 1}',
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: i <= _step ? Colors.white : Colors.black38)),
+                    child: Text(
+                      '${i + 1}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: i <= _step ? Colors.white : Colors.black38,
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -255,8 +290,11 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
   }
 
   // 主 CTA 按钮（品红 pill）
-  Widget _cta(String text, VoidCallback onTap,
-      {Color textColor = const Color(0xFFFFE229)}) {
+  Widget _cta(
+    String text,
+    VoidCallback onTap, {
+    Color textColor = const Color(0xFFFFE229),
+  }) {
     return Positioned(
       left: 24,
       top: 751,
@@ -267,26 +305,36 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
           height: 52,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-              color: _magenta, borderRadius: BorderRadius.circular(23.5)),
-          child: Text(text,
-              style: TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.w600, color: textColor)),
+            color: _magenta,
+            borderRadius: BorderRadius.circular(23.5),
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: textColor,
+            ),
+          ),
         ),
       ),
     );
   }
 
   Widget _sectionTitle(String text, {double top = 164}) => Positioned(
-        left: 29,
-        top: top,
-        width: 306,
-        child: Text(text,
-            style: const TextStyle(
-                fontSize: 20,
-                height: 1.15,
-                fontWeight: FontWeight.w600,
-                color: _magenta)),
-      );
+    left: 29,
+    top: top,
+    width: 306,
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: 20,
+        height: 1.15,
+        fontWeight: FontWeight.w600,
+        color: _magenta,
+      ),
+    ),
+  );
 
   // ---------- ① 写困扰 ----------
   Widget _writeDoubts() {
@@ -312,24 +360,38 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
                   expands: true,
                   maxLength: 200,
                   textAlignVertical: TextAlignVertical.top,
-                  style: const TextStyle(fontSize: 15, color: Color(0xFF333333)),
-                  buildCounter: (_, {required currentLength, maxLength, required isFocused}) => null,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: Color(0xFF333333),
+                  ),
+                  buildCounter:
+                      (
+                        _, {
+                        required currentLength,
+                        maxLength,
+                        required isFocused,
+                      }) => null,
                   decoration: InputDecoration(
                     isCollapsed: true,
                     border: InputBorder.none,
                     hintText: 'Sum up your troubles in one sentence',
                     hintStyle: TextStyle(
-                        fontSize: 15, color: Colors.black.withValues(alpha: 0.35)),
+                      fontSize: 15,
+                      color: Colors.black.withValues(alpha: 0.35),
+                    ),
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
                 Positioned(
                   right: 0,
                   bottom: 0,
-                  child: Text('${_thought.text.length} / 200',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.black.withValues(alpha: 0.35))),
+                  child: Text(
+                    '${_thought.text.length} / 200',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.black.withValues(alpha: 0.35),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -358,8 +420,10 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
               final (icon, name, desc) = _biases[i];
               final sel = _distortions.contains(name);
               return GestureDetector(
-                onTap: () => setState(() =>
-                    sel ? _distortions.remove(name) : _distortions.add(name)),
+                onTap: () => setState(
+                  () =>
+                      sel ? _distortions.remove(name) : _distortions.add(name),
+                ),
                 child: Container(
                   height: 89,
                   padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -367,37 +431,47 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(15),
                     border: Border.all(
-                        color: sel ? _magenta : Colors.transparent, width: 2),
+                      color: sel ? _magenta : Colors.transparent,
+                      width: 2,
+                    ),
                   ),
                   child: Row(
                     children: [
-                      Image.asset(icon,
-                          width: 56,
-                          height: 56,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, _, _) =>
-                              const SizedBox(width: 56, height: 56)),
+                      Image.asset(
+                        icon,
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) =>
+                            const SizedBox(width: 56, height: 56),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.black)),
+                            Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black,
+                              ),
+                            ),
                             const SizedBox(height: 3),
-                            Text(desc,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    height: 1.25,
-                                    color: Colors.black.withValues(alpha: 0.5))),
+                            Text(
+                              desc,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.25,
+                                color: Colors.black.withValues(alpha: 0.5),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -408,13 +482,18 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
                           shape: BoxShape.circle,
                           color: sel ? _magenta : Colors.transparent,
                           border: Border.all(
-                              color: sel
-                                  ? _magenta
-                                  : Colors.black.withValues(alpha: 0.25),
-                              width: 2),
+                            color: sel
+                                ? _magenta
+                                : Colors.black.withValues(alpha: 0.25),
+                            width: 2,
+                          ),
                         ),
                         child: sel
-                            ? const Icon(Icons.check, size: 15, color: Colors.white)
+                            ? const Icon(
+                                Icons.check,
+                                size: 15,
+                                color: Colors.white,
+                              )
                             : null,
                       ),
                     ],
@@ -438,11 +517,13 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
         Positioned(
           left: 14,
           top: 236,
-          child: Image.asset('assets/mascots/sunny.png',
-              height: 150,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) =>
-                  const Text('🌟', style: TextStyle(fontSize: 60))),
+          child: Image.asset(
+            'assets/mascots/sunny.png',
+            height: 150,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) =>
+                const Text('🌟', style: TextStyle(fontSize: 60)),
+          ),
         ),
         // 气泡
         Positioned(
@@ -458,22 +539,30 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
               borderRadius: BorderRadius.circular(15),
               boxShadow: const [
                 BoxShadow(
-                    color: Color(0x26000000),
-                    blurRadius: 10,
-                    offset: Offset(0, 4)),
+                  color: Color(0x26000000),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
               ],
             ),
-            child: const Text("Let's take a look at the facts together~",
-                style: TextStyle(fontSize: 13, height: 1.3, color: Colors.black)),
+            child: const Text(
+              "Let's take a look at the facts together~",
+              style: TextStyle(fontSize: 13, height: 1.3, color: Colors.black),
+            ),
           ),
         ),
         // Your thought
         const Positioned(
           left: 33,
           top: 409,
-          child: Text('Your thought:',
-              style: TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black)),
+          child: Text(
+            'Your thought:',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+          ),
         ),
         Positioned(
           left: 30,
@@ -483,25 +572,31 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
             constraints: const BoxConstraints(minHeight: 86),
             padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 14),
             decoration: BoxDecoration(
-                color: const Color(0xFFFFE7E5),
-                borderRadius: BorderRadius.circular(15)),
+              color: const Color(0xFFFFE7E5),
+              borderRadius: BorderRadius.circular(15),
+            ),
             child: Text(
-                _thought.text.trim().isEmpty
-                    ? 'He didn’t reply to my message last night.'
-                    : _thought.text.trim(),
-                style: TextStyle(
-                    fontSize: 15,
-                    height: 1.4,
-                    color: Colors.black.withValues(alpha: 0.7))),
+              _thought.text.trim(),
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.4,
+                color: Colors.black.withValues(alpha: 0.7),
+              ),
+            ),
           ),
         ),
         // Enter counter-evidence
         const Positioned(
           left: 33,
           top: 553,
-          child: Text('Enter counter-evidence',
-              style: TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black)),
+          child: Text(
+            'Enter counter-evidence',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+          ),
         ),
         Positioned(
           left: 30,
@@ -511,21 +606,28 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
             height: 144,
             padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 12),
             decoration: BoxDecoration(
-                color: const Color(0xFFF0FFD7),
-                borderRadius: BorderRadius.circular(15)),
+              color: const Color(0xFFF0FFD7),
+              borderRadius: BorderRadius.circular(15),
+            ),
             child: TextField(
               controller: _evidence,
               maxLines: null,
               expands: true,
               textAlignVertical: TextAlignVertical.top,
-              style: const TextStyle(fontSize: 15, height: 1.4, color: Color(0xB3000000)),
+              style: const TextStyle(
+                fontSize: 15,
+                height: 1.4,
+                color: Color(0xB3000000),
+              ),
               decoration: InputDecoration(
                 isCollapsed: true,
                 border: InputBorder.none,
-                hintText:
-                    '1. He’s very busy with work recently.\n2. Our chat went normally.\n3. He often replies late at night.',
+                hintText: 'Enter facts that support another explanation...',
                 hintStyle: TextStyle(
-                    fontSize: 15, height: 1.4, color: Colors.black.withValues(alpha: 0.3)),
+                  fontSize: 15,
+                  height: 1.4,
+                  color: Colors.black.withValues(alpha: 0.3),
+                ),
               ),
             ),
           ),
@@ -548,7 +650,9 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
             height: 300,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(15)),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+            ),
             child: TextField(
               controller: _newThought,
               maxLines: null,
@@ -558,9 +662,11 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
               decoration: InputDecoration(
                 isCollapsed: true,
                 border: InputBorder.none,
-                hintText: 'He’s very busy with work recently.',
+                hintText: 'Write your healthier interpretation here...',
                 hintStyle: TextStyle(
-                    fontSize: 15, color: Colors.black.withValues(alpha: 0.35)),
+                  fontSize: 15,
+                  color: Colors.black.withValues(alpha: 0.35),
+                ),
               ),
             ),
           ),
@@ -579,27 +685,38 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
           left: 44,
           top: 93,
           width: 305,
-          child: Text('Awesome!\nYou’ve completed the cognitive restructuring exercise',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: 20,
-                  height: 1.35,
-                  fontWeight: FontWeight.w600,
-                  color: _magenta)),
+          child: Text(
+            'Awesome!\nYou’ve completed the cognitive restructuring exercise',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+              color: _magenta,
+            ),
+          ),
         ),
         // Original / New Thought 双卡
-        _thoughtCard(25, 'Original Thought',
-            _thought.text.trim().isEmpty ? '—' : _thought.text.trim()),
-        _thoughtCard(201, 'New Thought',
-            _newThought.text.trim().isEmpty ? '—' : _newThought.text.trim()),
+        _thoughtCard(
+          25,
+          'Original Thought',
+          _thought.text.trim().isEmpty ? '—' : _thought.text.trim(),
+        ),
+        _thoughtCard(
+          201,
+          'New Thought',
+          _newThought.text.trim().isEmpty ? '—' : _newThought.text.trim(),
+        ),
         // 完成插画
         Positioned(
           left: 41,
           top: 440,
           width: 320,
-          child: Image.asset('assets/cc/done.png',
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const SizedBox.shrink()),
+          child: Image.asset(
+            'assets/cc/done.png',
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          ),
         ),
         // Save / Home
         Positioned(
@@ -610,8 +727,11 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
         Positioned(
           left: 201,
           top: 751,
-          child: _doneBtn('Home', const Color(0xFFFFE229),
-              () => Navigator.of(context).maybePop()),
+          child: _doneBtn(
+            'Home',
+            const Color(0xFFFFE229),
+            () => Navigator.of(context).maybePop(),
+          ),
         ),
       ],
     );
@@ -626,24 +746,31 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
         height: 197,
         padding: const EdgeInsets.fromLTRB(16, 21, 12, 12),
         decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(15)),
+          color: Colors.white.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(15),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black)),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+            ),
             const SizedBox(height: 10),
             Expanded(
               child: SingleChildScrollView(
-                child: Text(body,
-                    style: TextStyle(
-                        fontSize: 15,
-                        height: 1.45,
-                        color: Colors.black.withValues(alpha: 0.7))),
+                child: Text(
+                  body,
+                  style: TextStyle(
+                    fontSize: 15,
+                    height: 1.45,
+                    color: Colors.black.withValues(alpha: 0.7),
+                  ),
+                ),
               ),
             ),
           ],
@@ -660,10 +787,17 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
         height: 52,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-            color: _magenta, borderRadius: BorderRadius.circular(23.5)),
-        child: Text(text,
-            style: TextStyle(
-                fontSize: 20, fontWeight: FontWeight.w600, color: textColor)),
+          color: _magenta,
+          borderRadius: BorderRadius.circular(23.5),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: textColor,
+          ),
+        ),
       ),
     );
   }
@@ -698,18 +832,23 @@ class _CcHistoryPageState extends State<CcHistoryPage> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: Image.asset('assets/cc/bg.png',
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) =>
-                    const ColoredBox(color: Color(0xFFEAF1FF))),
+            child: Image.asset(
+              'assets/cc/bg.png',
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) =>
+                  const ColoredBox(color: Color(0xFFEAF1FF)),
+            ),
           ),
           Positioned(
             left: 18,
             top: 66,
             child: GestureDetector(
               onTap: () => Navigator.of(context).maybePop(),
-              child: Icon(Icons.chevron_left,
-                  size: 28, color: Colors.black.withValues(alpha: 0.7)),
+              child: Icon(
+                Icons.chevron_left,
+                size: 28,
+                color: Colors.black.withValues(alpha: 0.7),
+              ),
             ),
           ),
           const Positioned(
@@ -717,11 +856,14 @@ class _CcHistoryPageState extends State<CcHistoryPage> {
             top: 69,
             width: 393,
             child: Center(
-              child: Text('Correction History',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black)),
+              child: Text(
+                'Correction History',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -732,13 +874,13 @@ class _CcHistoryPageState extends State<CcHistoryPage> {
             child: records == null
                 ? const Center(child: CircularProgressIndicator())
                 : records.isEmpty
-                    ? const _EmptyHistory()
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
-                        itemCount: records.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 14),
-                        itemBuilder: (_, i) => _record(records[i]),
-                      ),
+                ? const _EmptyHistory()
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
+                    itemCount: records.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 14),
+                    itemBuilder: (_, i) => _record(records[i]),
+                  ),
           ),
         ],
       ),
@@ -758,9 +900,13 @@ class _CcHistoryPageState extends State<CcHistoryPage> {
           // 日期 + 偏差标签
           Row(
             children: [
-              Text(DateFormat('MMM d, yyyy · HH:mm').format(r.createdAt),
-                  style: TextStyle(
-                      fontSize: 12, color: Colors.black.withValues(alpha: 0.45))),
+              Text(
+                DateFormat('MMM d, yyyy · HH:mm').format(r.createdAt),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.black.withValues(alpha: 0.45),
+                ),
+              ),
             ],
           ),
           if (r.distortions.isNotEmpty) ...[
@@ -771,23 +917,34 @@ class _CcHistoryPageState extends State<CcHistoryPage> {
               children: [
                 for (final d in r.distortions)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: _magenta.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Text(d,
-                        style: const TextStyle(fontSize: 11, color: _magenta)),
+                    child: Text(
+                      d,
+                      style: const TextStyle(fontSize: 11, color: _magenta),
+                    ),
                   ),
               ],
             ),
           ],
           const SizedBox(height: 12),
-          _labeled('Original Thought',
-              r.thought.isEmpty ? '—' : r.thought, const Color(0xFFFFE7E5)),
+          _labeled(
+            'Original Thought',
+            r.thought.isEmpty ? '—' : r.thought,
+            const Color(0xFFFFE7E5),
+          ),
           const SizedBox(height: 8),
-          _labeled('New Thought',
-              r.newThought.isEmpty ? '—' : r.newThought, const Color(0xFFF0FFD7)),
+          _labeled(
+            'New Thought',
+            r.newThought.isEmpty ? '—' : r.newThought,
+            const Color(0xFFF0FFD7),
+          ),
         ],
       ),
     );
@@ -797,22 +954,30 @@ class _CcHistoryPageState extends State<CcHistoryPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(body,
-              style: TextStyle(
-                  fontSize: 14,
-                  height: 1.4,
-                  color: Colors.black.withValues(alpha: 0.7))),
+          Text(
+            body,
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.4,
+              color: Colors.black.withValues(alpha: 0.7),
+            ),
+          ),
         ],
       ),
     );
@@ -830,13 +995,21 @@ class _EmptyHistory extends StatelessWidget {
         children: [
           Text('🌤️', style: TextStyle(fontSize: 44)),
           const SizedBox(height: 14),
-          Text('No records yet',
-              style: TextStyle(
-                  fontSize: 15, color: Colors.black.withValues(alpha: 0.6))),
+          Text(
+            'No records yet',
+            style: TextStyle(
+              fontSize: 15,
+              color: Colors.black.withValues(alpha: 0.6),
+            ),
+          ),
           const SizedBox(height: 4),
-          Text('Completed exercises will appear here.',
-              style: TextStyle(
-                  fontSize: 12, color: Colors.black.withValues(alpha: 0.4))),
+          Text(
+            'Completed exercises will appear here.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.black.withValues(alpha: 0.4),
+            ),
+          ),
         ],
       ),
     );
