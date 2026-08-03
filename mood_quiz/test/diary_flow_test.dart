@@ -53,7 +53,7 @@ void main() {
     });
   });
 
-  testWidgets('Home defaults to Great, reflects today entry after write', (
+  testWidgets('Home starts neutral and reflects today entry after write', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(393, 852);
@@ -69,7 +69,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // 未选择今日心情 → 显示 Great
-    expect(find.text("Today's Mood: Great"), findsOneWidget);
+    expect(find.text("Today's Mood: Not recorded"), findsOneWidget);
+    expect(find.text('Start your first mood record'), findsOneWidget);
+    expect(find.byIcon(Icons.cloud_outlined), findsOneWidget);
 
     // 写入今天，reload 后反映当日心情
     await repo.upsert(
@@ -98,5 +100,23 @@ void main() {
     expect(find.text('Diary'), findsOneWidget);
     expect(find.text('Good day'), findsOneWidget);
     expect(find.text('How do you feel overall?'), findsNothing);
+  });
+
+  testWidgets('neutral mood card opens the first record flow', (tester) async {
+    tester.view.physicalSize = const Size(393, 852);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: HomePage(repo: LocalDiaryRepository())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('today-mood-card')));
+    await tester.pumpAndSettle();
+    expect(find.text('Diary'), findsOneWidget);
+    expect(find.text('How do you feel overall?'), findsOneWidget);
   });
 }

@@ -85,7 +85,24 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
 
     expect(find.text('Visual Grounding'), findsOneWidget);
+    expect(
+      find.text(
+        'Think of one thing you can clearly see, then tap the glowing stone.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('0 / 5'), findsOneWidget);
+    expect(find.byKey(const ValueKey('grounding-static-mode')), findsOneWidget);
+
+    // Only the current glowing stone accepts a tap.
+    await tester.tap(find.byKey(const ValueKey('grounding-target-0-1')));
+    await tester.pump();
+    expect(find.text('0 / 5'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('grounding-static-mode')));
+    await tester.pump();
+    expect(find.byIcon(Icons.motion_photos_off_outlined), findsOneWidget);
+
     expect(find.byIcon(Icons.music_note), findsOneWidget);
     await tester.tap(find.byIcon(Icons.music_note));
     await tester.pump();

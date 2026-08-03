@@ -1,61 +1,12 @@
-import 'dart:convert';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-/// 一条已完成的认知矫正记录（本地存储；后续可迁 Supabase cognitive_records 表）。
-class CcRecord {
-  CcRecord({
-    required this.thought,
-    required this.distortions,
-    required this.evidence,
-    required this.newThought,
-    required this.createdAt,
-  });
-  final String thought;
-  final List<String> distortions;
-  final String evidence;
-  final String newThought;
-  final DateTime createdAt;
+import '../data/cognitive_correction_repository.dart';
 
-  Map<String, dynamic> toJson() => {
-    'thought': thought,
-    'distortions': distortions,
-    'evidence': evidence,
-    'newThought': newThought,
-    'createdAt': createdAt.toIso8601String(),
-  };
-  factory CcRecord.fromJson(Map<String, dynamic> j) => CcRecord(
-    thought: j['thought'] as String? ?? '',
-    distortions:
-        (j['distortions'] as List?)?.map((e) => e as String).toList() ?? [],
-    evidence: j['evidence'] as String? ?? '',
-    newThought: j['newThought'] as String? ?? '',
-    createdAt: DateTime.parse(j['createdAt'] as String),
-  );
-}
+export '../data/cognitive_correction_repository.dart';
 
-class CcRepo {
-  static const _key = 'cc_records';
-
-  static Future<List<CcRecord>> all() async {
-    final p = await SharedPreferences.getInstance();
-    final raw = p.getStringList(_key) ?? [];
-    return raw
-        .map((s) => CcRecord.fromJson(jsonDecode(s) as Map<String, dynamic>))
-        .toList();
-  }
-
-  static Future<void> add(CcRecord r) async {
-    final p = await SharedPreferences.getInstance();
-    final raw = p.getStringList(_key) ?? [];
-    raw.insert(0, jsonEncode(r.toJson()));
-    await p.setStringList(_key, raw);
-  }
-}
-
-/// Cognitive Correction 子功能（CBT 认知矫正，Figma APP_Haze CC 系列，18:1631/1648/1453/1436/1686）。
-/// 5 步：写困扰 → 选认知偏差 → 现实检验 → 重构思维 → 完成。
 class CognitiveCorrectionPage extends StatefulWidget {
   const CognitiveCorrectionPage({super.key});
 
@@ -66,744 +17,597 @@ class CognitiveCorrectionPage extends StatefulWidget {
 
 class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
   static const _magenta = Color(0xFFC640A3);
+  static const _yellow = Color(0xFFFFE229);
 
-  int _step = 0; // 0..4
-
-  // 用户数据
-  final _thought = TextEditingController();
-  final Set<String> _distortions = {};
-  final _evidence = TextEditingController();
-  final _newThought = TextEditingController();
-
-  // 5 个认知偏差（图标 + 名称 + 描述）
-  static const _biases = <(String, String, String)>[
-    (
-      'assets/cc/mind_reading.png',
-      'Mind Reading',
-      'Assuming you know what others are thinking',
-    ),
-    (
-      'assets/cc/catastrophizing.png',
-      'Catastrophizing',
-      'Blowing things out of proportion',
-    ),
-    (
-      'assets/cc/all_or_nothing.png',
-      'All-or-Nothing Thinking',
-      'Seeing everything in extreme, binary terms',
-    ),
-    (
-      'assets/cc/should.png',
-      'Should Statements',
-      'Holding rigid rules for yourself and others',
-    ),
-    ('assets/cc/other.png', 'Other', 'Uncertain or none of the above'),
+  static const _evidenceOptions = [
+    'I saw or heard it directly',
+    'I am interpreting a message or silence',
+    'Someone else told me',
+    'I do not have direct evidence yet',
   ];
+  static const _alternativeOptions = [
+    'They may be busy, tired, or distracted',
+    'I may be missing important context',
+    'This could be about their situation, not my worth',
+    'I can wait for one clearer signal before deciding',
+  ];
+
+  final _situation = TextEditingController();
+  final _evidenceNotes = TextEditingController();
+  final _alternativeNotes = TextEditingController();
+  final _balancedNotes = TextEditingController();
+  final _evidence = <String>{};
+  final _alternatives = <String>{};
+  int? _emotionIntensity;
+  int _step = 0;
+  CcRecord? _result;
+  bool _saving = false;
 
   @override
   void dispose() {
-    _thought.dispose();
-    _evidence.dispose();
-    _newThought.dispose();
+    _situation.dispose();
+    _evidenceNotes.dispose();
+    _alternativeNotes.dispose();
+    _balancedNotes.dispose();
     super.dispose();
   }
 
-  void _next() {
-    if (_step == 0 && _thought.text.trim().isEmpty) return;
-    if (_step == 2 && _evidence.text.trim().isEmpty) return;
-    if (_step == 3 && _newThought.text.trim().isEmpty) return;
-    setState(() => _step++);
+  bool get _canContinue => switch (_step) {
+    0 => _situation.text.trim().isNotEmpty,
+    1 => _evidence.isNotEmpty,
+    2 => _alternatives.isNotEmpty,
+    3 => _emotionIntensity != null,
+    _ => true,
+  };
+
+  Future<void> _next() async {
+    if (!_canContinue || _saving) return;
+    if (_step < 3) {
+      setState(() => _step++);
+      return;
+    }
+    setState(() => _saving = true);
+    final record = _buildResult();
+    await CcRepo.add(record);
+    if (!mounted) return;
+    setState(() {
+      _result = record;
+      _step = 4;
+      _saving = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Saved to Correction History and Report.')),
+    );
   }
 
   void _back() {
     if (_step == 0) {
       Navigator.of(context).maybePop();
-    } else {
+    } else if (_step < 4) {
       setState(() => _step--);
+    } else {
+      Navigator.of(context).maybePop();
     }
   }
 
-  bool _saved = false;
-
-  Future<void> _saveRecord() async {
-    if (_saved) return; // 防重复保存
-    await CcRepo.add(
-      CcRecord(
-        thought: _thought.text.trim(),
-        distortions: _distortions.toList(),
-        evidence: _evidence.text.trim(),
-        newThought: _newThought.text.trim(),
-        createdAt: DateTime.now(),
-      ),
+  CcRecord _buildResult() {
+    final biases = _detectBiases(_situation.text);
+    final balanced = _balancedNotes.text.trim().isNotEmpty
+        ? _balancedNotes.text.trim()
+        : _suggestBalancedThought();
+    final explanation = _biasExplanation(biases.first);
+    final intensity = _emotionIntensity ?? 0;
+    return CcRecord(
+      situation: _situation.text,
+      distortions: biases,
+      evidenceChoices: _evidence.toList(),
+      evidenceNotes: _evidenceNotes.text,
+      alternativeChoices: _alternatives.toList(),
+      alternativeNotes: _alternativeNotes.text,
+      emotionIntensity: intensity,
+      balancedThought: balanced,
+      explanation: explanation,
+      confidenceNote:
+          'This reflection is based on your answers. It is a guide, not a diagnosis or proof of another person’s intentions.',
+      nextAction: intensity >= 80
+          ? 'Pause for two minutes, then revisit this thought when the feeling is less intense.'
+          : 'Wait for one concrete signal before drawing a conclusion, then choose one calm next step.',
+      createdAt: DateTime.now(),
     );
-    _saved = true;
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Saved — you can view it in Correction History.'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
   }
+
+  List<String> _detectBiases(String value) {
+    final text = value.toLowerCase();
+    final biases = <String>[];
+    if (text.contains('should') ||
+        text.contains('must') ||
+        text.contains('have to')) {
+      biases.add('Should Statements');
+    }
+    if (text.contains('always') ||
+        text.contains('never') ||
+        text.contains('everyone') ||
+        text.contains('no one') ||
+        text.contains('failure')) {
+      biases.add('All-or-Nothing Thinking');
+    }
+    if (text.contains('worst') ||
+        text.contains('ruined') ||
+        text.contains('disaster') ||
+        text.contains('everything is over')) {
+      biases.add('Catastrophizing');
+    }
+    if (text.contains('think') ||
+        text.contains('care') ||
+        text.contains('ignore') ||
+        text.contains('reply') ||
+        _evidence.contains('I do not have direct evidence yet') ||
+        _evidence.contains('I am interpreting a message or silence')) {
+      biases.add('Mind Reading');
+    }
+    if (biases.isEmpty) biases.add('Emotional Reasoning');
+    return biases.take(2).toList();
+  }
+
+  String _suggestBalancedThought() {
+    if (_alternatives.contains(
+      'This could be about their situation, not my worth',
+    )) {
+      return 'This situation may reflect what they are dealing with, not my worth. I can wait for clearer evidence before deciding what it means.';
+    }
+    if (_alternatives.contains('They may be busy, tired, or distracted')) {
+      return 'There are ordinary reasons for this situation. A delay or brief response does not tell me the whole story.';
+    }
+    if (_alternatives.contains('I may be missing important context')) {
+      return 'I may not have the full context yet. I can hold more than one explanation until I know more.';
+    }
+    return 'I can pause this conclusion and wait for one clearer signal before deciding what it means.';
+  }
+
+  String _biasExplanation(String bias) => switch (bias) {
+    'Mind Reading' =>
+      'Mind reading means treating a guess about someone’s thoughts as if it were a confirmed fact.',
+    'Catastrophizing' =>
+      'Catastrophizing means jumping from one difficult moment to the worst possible outcome.',
+    'All-or-Nothing Thinking' =>
+      'All-or-nothing thinking turns a mixed situation into an absolute success or failure.',
+    'Should Statements' =>
+      'Should statements apply rigid rules that can intensify guilt, pressure, or resentment.',
+    _ =>
+      'Emotional reasoning means treating a strong feeling as proof that a conclusion must be true.',
+  };
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFCEEF6), Color(0xFFE8EEFF)],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _header(),
+              if (_step < 4) _progress(),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  child: _stepBody(),
+                ),
+              ),
+              if (_step < 4) _continueButton(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _header() {
+    return SizedBox(
+      height: 62,
+      child: Row(
         children: [
-          // 云朵渐变背景
-          Positioned.fill(
-            child: Image.asset(
-              'assets/cc/bg.png',
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) =>
-                  const ColoredBox(color: Color(0xFFEAF1FF)),
+          IconButton(onPressed: _back, icon: const Icon(Icons.chevron_left)),
+          const Expanded(
+            child: Text(
+              'Cognitive Correction',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
             ),
           ),
-          // 返回
-          Positioned(
-            left: 18,
-            top: 66,
-            child: GestureDetector(
-              onTap: _back,
-              child: Icon(
-                Icons.chevron_left,
-                size: 28,
-                color: Colors.black.withValues(alpha: 0.7),
-              ),
-            ),
+          IconButton(
+            tooltip: 'Correction History',
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const CcHistoryPage())),
+            icon: const Icon(Icons.history, color: _magenta),
           ),
-          // 顶部标题
-          Positioned(
-            left: 0,
-            top: 69,
-            width: 393,
-            child: Center(
-              child: Text(
-                _titles[_step],
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                ),
-              ),
-            ),
-          ),
-          // 第一步右上角：历史记录入口
-          if (_step == 0)
-            Positioned(
-              right: 18,
-              top: 64,
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const CcHistoryPage()),
-                ),
-                child: Icon(
-                  Icons.history,
-                  size: 26,
-                  color: _magenta.withValues(alpha: 0.85),
-                ),
-              ),
-            ),
-          // 完成屏不显示步骤条
-          if (_step < 4) _stepIndicator(),
-          // 当前步内容
-          _content(),
         ],
       ),
     );
   }
 
-  static const _titles = [
-    'Cognitive Correction',
-    'Select Cognitive Distortions',
-    'Reality Testing',
-    'Restructure Thinking',
-    'Cognitive Correction',
-  ];
-
-  // 5 点步骤进度条
-  Widget _stepIndicator() {
-    return Positioned(
-      left: 26,
-      top: 120,
-      width: 341,
-      child: SizedBox(
-        height: 31,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // 连接线
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 15),
-              height: 7,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD9D9D9),
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                for (var i = 0; i < 5; i++)
-                  Container(
-                    width: 31,
-                    height: 31,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: i <= _step ? _magenta : const Color(0xFFECECEC),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '${i + 1}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: i <= _step ? Colors.white : Colors.black38,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _content() {
-    switch (_step) {
-      case 0:
-        return _writeDoubts();
-      case 1:
-        return _selectBias();
-      case 2:
-        return _realityTesting();
-      case 3:
-        return _restructure();
-      default:
-        return _done();
-    }
-  }
-
-  // 主 CTA 按钮（品红 pill）
-  Widget _cta(
-    String text,
-    VoidCallback onTap, {
-    Color textColor = const Color(0xFFFFE229),
-  }) {
-    return Positioned(
-      left: 24,
-      top: 751,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 344,
-          height: 52,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: _magenta,
-            borderRadius: BorderRadius.circular(23.5),
-          ),
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: textColor,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _sectionTitle(String text, {double top = 164}) => Positioned(
-    left: 29,
-    top: top,
-    width: 306,
-    child: Text(
-      text,
-      style: const TextStyle(
-        fontSize: 20,
-        height: 1.15,
-        fontWeight: FontWeight.w600,
-        color: _magenta,
-      ),
-    ),
-  );
-
-  // ---------- ① 写困扰 ----------
-  Widget _writeDoubts() {
-    return Stack(
-      children: [
-        _sectionTitle('Write your doubts,\nlet Star sort your thoughts'),
-        Positioned(
-          left: 24,
-          top: 240,
-          child: Container(
-            width: 345,
-            height: 300,
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Stack(
-              children: [
-                TextField(
-                  controller: _thought,
-                  maxLines: null,
-                  expands: true,
-                  maxLength: 200,
-                  textAlignVertical: TextAlignVertical.top,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    color: Color(0xFF333333),
-                  ),
-                  buildCounter:
-                      (
-                        _, {
-                        required currentLength,
-                        maxLength,
-                        required isFocused,
-                      }) => null,
-                  decoration: InputDecoration(
-                    isCollapsed: true,
-                    border: InputBorder.none,
-                    hintText: 'Sum up your troubles in one sentence',
-                    hintStyle: TextStyle(
-                      fontSize: 15,
-                      color: Colors.black.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Text(
-                    '${_thought.text.length} / 200',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.black.withValues(alpha: 0.35),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        _cta('Next', _next),
-      ],
-    );
-  }
-
-  // ---------- ② 选认知偏差 ----------
-  Widget _selectBias() {
-    return Stack(
-      children: [
-        _sectionTitle('You may be experiencing the following thinking biases'),
-        Positioned(
-          left: 24,
-          top: 247,
-          bottom: 120,
-          width: 345,
-          child: ListView.separated(
-            padding: EdgeInsets.zero,
-            itemCount: _biases.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 11),
-            itemBuilder: (_, i) {
-              final (icon, name, desc) = _biases[i];
-              final sel = _distortions.contains(name);
-              return GestureDetector(
-                onTap: () => setState(
-                  () =>
-                      sel ? _distortions.remove(name) : _distortions.add(name),
-                ),
-                child: Container(
-                  height: 89,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(
-                      color: sel ? _magenta : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Image.asset(
-                        icon,
-                        width: 56,
-                        height: 56,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, _, _) =>
-                            const SizedBox(width: 56, height: 56),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              desc,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                height: 1.25,
-                                color: Colors.black.withValues(alpha: 0.5),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: sel ? _magenta : Colors.transparent,
-                          border: Border.all(
-                            color: sel
-                                ? _magenta
-                                : Colors.black.withValues(alpha: 0.25),
-                            width: 2,
-                          ),
-                        ),
-                        child: sel
-                            ? const Icon(
-                                Icons.check,
-                                size: 15,
-                                color: Colors.white,
-                              )
-                            : null,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        _cta('Next', _next),
-      ],
-    );
-  }
-
-  // ---------- ③ 现实检验 ----------
-  Widget _realityTesting() {
-    return Stack(
-      children: [
-        _sectionTitle('Provide objective evidence for your thoughts'),
-        // 星星吉祥物
-        Positioned(
-          left: 14,
-          top: 236,
-          child: Image.asset(
-            'assets/mascots/sunny.png',
-            height: 150,
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) =>
-                const Text('🌟', style: TextStyle(fontSize: 60)),
-          ),
-        ),
-        // 气泡
-        Positioned(
-          left: 197,
-          top: 275,
-          child: Container(
-            width: 171,
-            height: 89,
-            padding: const EdgeInsets.all(10),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.85),
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x26000000),
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Text(
-              "Let's take a look at the facts together~",
-              style: TextStyle(fontSize: 13, height: 1.3, color: Colors.black),
-            ),
-          ),
-        ),
-        // Your thought
-        const Positioned(
-          left: 33,
-          top: 409,
-          child: Text(
-            'Your thought:',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
-          ),
-        ),
-        Positioned(
-          left: 30,
-          top: 446,
-          child: Container(
-            width: 335,
-            constraints: const BoxConstraints(minHeight: 86),
-            padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFE7E5),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Text(
-              _thought.text.trim(),
-              style: TextStyle(
-                fontSize: 15,
-                height: 1.4,
-                color: Colors.black.withValues(alpha: 0.7),
-              ),
-            ),
-          ),
-        ),
-        // Enter counter-evidence
-        const Positioned(
-          left: 33,
-          top: 553,
-          child: Text(
-            'Enter counter-evidence',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
-          ),
-        ),
-        Positioned(
-          left: 30,
-          top: 595,
-          child: Container(
-            width: 335,
-            height: 144,
-            padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0FFD7),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: TextField(
-              controller: _evidence,
-              maxLines: null,
-              expands: true,
-              textAlignVertical: TextAlignVertical.top,
-              style: const TextStyle(
-                fontSize: 15,
-                height: 1.4,
-                color: Color(0xB3000000),
-              ),
-              decoration: InputDecoration(
-                isCollapsed: true,
-                border: InputBorder.none,
-                hintText: 'Enter facts that support another explanation...',
-                hintStyle: TextStyle(
-                  fontSize: 15,
-                  height: 1.4,
-                  color: Colors.black.withValues(alpha: 0.3),
-                ),
-              ),
-            ),
-          ),
-        ),
-        _cta('Next', _next),
-      ],
-    );
-  }
-
-  // ---------- ④ 重构思维 ----------
-  Widget _restructure() {
-    return Stack(
-      children: [
-        _sectionTitle('Write a healthier interpretation of this thought'),
-        Positioned(
-          left: 24,
-          top: 240,
-          child: Container(
-            width: 345,
-            height: 300,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: TextField(
-              controller: _newThought,
-              maxLines: null,
-              expands: true,
-              textAlignVertical: TextAlignVertical.top,
-              style: const TextStyle(fontSize: 15, color: Color(0xFF333333)),
-              decoration: InputDecoration(
-                isCollapsed: true,
-                border: InputBorder.none,
-                hintText: 'Write your healthier interpretation here...',
-                hintStyle: TextStyle(
-                  fontSize: 15,
-                  color: Colors.black.withValues(alpha: 0.35),
-                ),
-              ),
-            ),
-          ),
-        ),
-        _cta('Next', _next),
-      ],
-    );
-  }
-
-  // ---------- ⑤ 完成 ----------
-  Widget _done() {
-    return Stack(
-      children: [
-        // Awesome 标题
-        const Positioned(
-          left: 44,
-          top: 93,
-          width: 305,
-          child: Text(
-            'Awesome!\nYou’ve completed the cognitive restructuring exercise',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 20,
-              height: 1.35,
-              fontWeight: FontWeight.w600,
-              color: _magenta,
-            ),
-          ),
-        ),
-        // Original / New Thought 双卡
-        _thoughtCard(
-          25,
-          'Original Thought',
-          _thought.text.trim().isEmpty ? '—' : _thought.text.trim(),
-        ),
-        _thoughtCard(
-          201,
-          'New Thought',
-          _newThought.text.trim().isEmpty ? '—' : _newThought.text.trim(),
-        ),
-        // 完成插画
-        Positioned(
-          left: 41,
-          top: 440,
-          width: 320,
-          child: Image.asset(
-            'assets/cc/done.png',
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-          ),
-        ),
-        // Save / Home
-        Positioned(
-          left: 24,
-          top: 751,
-          child: _doneBtn('Save', Colors.white, _saveRecord),
-        ),
-        Positioned(
-          left: 201,
-          top: 751,
-          child: _doneBtn(
-            'Home',
-            const Color(0xFFFFE229),
-            () => Navigator.of(context).maybePop(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _thoughtCard(double left, String title, String body) {
-    return Positioned(
-      left: left,
-      top: 227,
-      child: Container(
-        width: 167,
-        height: 197,
-        padding: const EdgeInsets.fromLTRB(16, 21, 12, 12),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 10),
+  Widget _progress() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 14),
+      child: Row(
+        children: [
+          for (var index = 0; index < 5; index++) ...[
             Expanded(
-              child: SingleChildScrollView(
-                child: Text(
-                  body,
-                  style: TextStyle(
-                    fontSize: 15,
-                    height: 1.45,
-                    color: Colors.black.withValues(alpha: 0.7),
-                  ),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                height: 6,
+                decoration: BoxDecoration(
+                  color: index <= _step ? _magenta : Colors.white60,
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
             ),
+            if (index < 4) const SizedBox(width: 6),
           ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _doneBtn(String text, Color textColor, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 169,
-        height: 52,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: _magenta,
-          borderRadius: BorderRadius.circular(23.5),
+  Widget _stepBody() => switch (_step) {
+    0 => _sceneStep(),
+    1 => _evidenceStep(),
+    2 => _alternativeStep(),
+    3 => _emotionStep(),
+    _ => _resultStep(),
+  };
+
+  Widget _page({
+    required String title,
+    required String subtitle,
+    required List<Widget> children,
+  }) {
+    return ListView(
+      key: ValueKey(_step),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 18),
+      children: [
+        Text(
+          'STEP ${_step + 1} OF 5',
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: _magenta,
+            letterSpacing: 1,
+          ),
         ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: textColor,
+        const SizedBox(height: 8),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          subtitle,
+          style: const TextStyle(
+            fontSize: 14,
+            height: 1.45,
+            color: Colors.black54,
+          ),
+        ),
+        const SizedBox(height: 20),
+        ...children,
+      ],
+    );
+  }
+
+  Widget _sceneStep() {
+    return _page(
+      title: 'What exactly happened?',
+      subtitle:
+          'Describe one specific moment: who was involved, what happened, and what thought appeared.',
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF8D8),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Text(
+            'Example: “They read my message two hours ago and did not reply. I thought they no longer cared about me.”',
+            style: TextStyle(fontSize: 13, height: 1.4),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _textBox(
+          controller: _situation,
+          hint: 'Describe the specific scene…',
+          minLines: 6,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'Private reflection · Used only to create this correction result.',
+          style: TextStyle(fontSize: 11, color: Colors.black45),
+        ),
+      ],
+    );
+  }
+
+  Widget _evidenceStep() {
+    return _page(
+      title: 'What facts do you actually have?',
+      subtitle:
+          'Choose the closest answer. Facts are things you directly saw, heard, or can verify.',
+      children: [
+        for (final option in _evidenceOptions)
+          _choiceTile(
+            option,
+            selected: _evidence.contains(option),
+            onTap: () => setState(() {
+              _evidence
+                ..clear()
+                ..add(option);
+            }),
+          ),
+        const SizedBox(height: 12),
+        _optionalLabel('Optional details'),
+        _textBox(
+          controller: _evidenceNotes,
+          hint: 'Add a verifiable detail if it helps…',
+          minLines: 3,
+        ),
+      ],
+    );
+  }
+
+  Widget _alternativeStep() {
+    return _page(
+      title: 'What else could explain it?',
+      subtitle:
+          'Select one or more plausible explanations. You do not have to believe them completely yet.',
+      children: [
+        for (final option in _alternativeOptions)
+          _choiceTile(
+            option,
+            selected: _alternatives.contains(option),
+            onTap: () => setState(() {
+              _alternatives.contains(option)
+                  ? _alternatives.remove(option)
+                  : _alternatives.add(option);
+            }),
+          ),
+        const SizedBox(height: 12),
+        _optionalLabel('Optional alternative'),
+        _textBox(
+          controller: _alternativeNotes,
+          hint: 'Write another possible explanation…',
+          minLines: 3,
+        ),
+      ],
+    );
+  }
+
+  Widget _emotionStep() {
+    return _page(
+      title: 'How intense is the feeling now?',
+      subtitle:
+          'Choose the closest level. This helps Haze suggest a realistic next action.',
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final value in [20, 40, 60, 80, 100])
+              ChoiceChip(
+                key: ValueKey('emotion-$value'),
+                label: Text('$value%'),
+                selected: _emotionIntensity == value,
+                selectedColor: _yellow,
+                side: BorderSide(
+                  color: _emotionIntensity == value ? _magenta : Colors.white,
+                ),
+                onSelected: (_) => setState(() => _emotionIntensity = value),
+              ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _optionalLabel('Optional balanced wording'),
+        const SizedBox(height: 4),
+        const Text(
+          'Leave this blank and Haze will create a balanced thought from your choices.',
+          style: TextStyle(fontSize: 12, color: Colors.black45),
+        ),
+        const SizedBox(height: 10),
+        _textBox(
+          controller: _balancedNotes,
+          hint: 'Example: I do not know the full story yet…',
+          minLines: 4,
+        ),
+      ],
+    );
+  }
+
+  Widget _resultStep() {
+    final result = _result!;
+    return ListView(
+      key: const ValueKey('correction-result'),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+      children: [
+        const Icon(Icons.auto_awesome, color: _magenta, size: 34),
+        const SizedBox(height: 6),
+        const Text(
+          'Your correction is ready',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Saved automatically to Correction History and Report.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+        const SizedBox(height: 18),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _resultSection('Original thought', result.situation),
+              _resultSection(
+                'Thinking pattern',
+                result.distortions.join(' · '),
+                accent: _magenta,
+              ),
+              _resultSection('Balanced thought', result.balancedThought),
+              _resultSection('Why this pattern fits', result.explanation),
+              _resultSection('Confidence note', result.confidenceNote),
+              _resultSection('Next action', result.nextAction, last: true),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: _magenta,
+            foregroundColor: _yellow,
+            minimumSize: const Size.fromHeight(50),
+          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const CcHistoryPage())),
+          child: const Text('View Correction History'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).maybePop(),
+          child: const Text('Done'),
+        ),
+      ],
+    );
+  }
+
+  Widget _resultSection(
+    String label,
+    String value, {
+    Color accent = Colors.black87,
+    bool last = false,
+  }) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: last ? 0 : 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Colors.black45,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.45,
+              fontWeight: label == 'Thinking pattern'
+                  ? FontWeight.w700
+                  : FontWeight.w400,
+              color: accent,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _continueButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 22),
+      child: FilledButton(
+        key: const ValueKey('correction-next'),
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(52),
+          backgroundColor: _magenta,
+          disabledBackgroundColor: _magenta.withValues(alpha: 0.28),
+          foregroundColor: _yellow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+        ),
+        onPressed: _canContinue && !_saving ? () => unawaited(_next()) : null,
+        child: Text(_saving ? 'Creating result…' : 'Continue'),
+      ),
+    );
+  }
+
+  Widget _choiceTile(
+    String label, {
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: selected ? const Color(0xFFFFF8D8) : Colors.white70,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              children: [
+                Icon(
+                  selected ? Icons.check_circle : Icons.circle_outlined,
+                  color: selected ? _magenta : Colors.black26,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(label, style: const TextStyle(height: 1.3)),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
-}
 
-// ============ Cognitive Correction 历史记录 ============
+  Widget _textBox({
+    required TextEditingController controller,
+    required String hint,
+    required int minLines,
+    ValueChanged<String>? onChanged,
+  }) {
+    return TextField(
+      controller: controller,
+      minLines: minLines,
+      maxLines: minLines + 2,
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        hintText: hint,
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.88),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _optionalLabel(String value) => Text(
+    value,
+    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+  );
+}
 
 class CcHistoryPage extends StatefulWidget {
   const CcHistoryPage({super.key});
@@ -813,203 +617,103 @@ class CcHistoryPage extends StatefulWidget {
 }
 
 class _CcHistoryPageState extends State<CcHistoryPage> {
-  static const _magenta = Color(0xFFC640A3);
   List<CcRecord>? _records;
 
   @override
   void initState() {
     super.initState();
-    CcRepo.all().then((r) {
-      if (mounted) setState(() => _records = r);
-    });
+    _load();
+  }
+
+  Future<void> _load() async {
+    final records = await CcRepo.all();
+    if (mounted) setState(() => _records = records);
   }
 
   @override
   Widget build(BuildContext context) {
-    final records = _records;
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Image.asset(
-              'assets/cc/bg.png',
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) =>
-                  const ColoredBox(color: Color(0xFFEAF1FF)),
-            ),
+      appBar: AppBar(
+        title: const Text('Correction History'),
+        backgroundColor: const Color(0xFFFCEEF6),
+      ),
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFCEEF6), Color(0xFFE8EEFF)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          Positioned(
-            left: 18,
-            top: 66,
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).maybePop(),
-              child: Icon(
-                Icons.chevron_left,
-                size: 28,
-                color: Colors.black.withValues(alpha: 0.7),
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 0,
-            top: 69,
-            width: 393,
-            child: Center(
-              child: Text(
-                'Correction History',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 116,
-            bottom: 0,
-            child: records == null
-                ? const Center(child: CircularProgressIndicator())
-                : records.isEmpty
-                ? const _EmptyHistory()
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
-                    itemCount: records.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 14),
-                    itemBuilder: (_, i) => _record(records[i]),
+        ),
+        child: _records == null
+            ? const Center(child: CircularProgressIndicator())
+            : _records!.isEmpty
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'No corrections yet.\nYour completed results will appear here automatically.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(height: 1.5, color: Colors.black54),
                   ),
-          ),
-        ],
+                ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),
+                itemCount: _records!.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 14),
+                itemBuilder: (_, index) => _recordCard(_records![index]),
+              ),
       ),
     );
   }
 
-  Widget _record(CcRecord r) {
+  Widget _recordCard(CcRecord record) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(15),
+        color: Colors.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 日期 + 偏差标签
-          Row(
-            children: [
-              Text(
-                DateFormat('MMM d, yyyy · HH:mm').format(r.createdAt),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.black.withValues(alpha: 0.45),
-                ),
-              ),
-            ],
-          ),
-          if (r.distortions.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final d in r.distortions)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _magenta.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      d,
-                      style: const TextStyle(fontSize: 11, color: _magenta),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 12),
-          _labeled(
-            'Original Thought',
-            r.thought.isEmpty ? '—' : r.thought,
-            const Color(0xFFFFE7E5),
+          Text(
+            DateFormat('MMM d, yyyy · HH:mm').format(record.createdAt),
+            style: const TextStyle(fontSize: 11, color: Colors.black45),
           ),
           const SizedBox(height: 8),
-          _labeled(
-            'New Thought',
-            r.newThought.isEmpty ? '—' : r.newThought,
-            const Color(0xFFF0FFD7),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final bias in record.distortions)
+                Chip(
+                  label: Text(bias),
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: const Color(0xFFFCE1F0),
+                ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _labeled(String label, String body, Color bg) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
+          const SizedBox(height: 10),
+          const Text(
+            'Original thought',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          Text(record.situation, style: const TextStyle(height: 1.4)),
+          const SizedBox(height: 10),
+          const Text(
+            'Balanced thought',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          Text(record.balancedThought, style: const TextStyle(height: 1.4)),
+          if (record.explanation.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              record.explanation,
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            body,
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.4,
-              color: Colors.black.withValues(alpha: 0.7),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyHistory extends StatelessWidget {
-  const _EmptyHistory();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('🌤️', style: TextStyle(fontSize: 44)),
-          const SizedBox(height: 14),
-          Text(
-            'No records yet',
-            style: TextStyle(
-              fontSize: 15,
-              color: Colors.black.withValues(alpha: 0.6),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Completed exercises will appear here.',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.black.withValues(alpha: 0.4),
-            ),
-          ),
+          ],
         ],
       ),
     );

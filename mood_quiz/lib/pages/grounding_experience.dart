@@ -50,14 +50,15 @@ class GroundingPage extends StatefulWidget {
   State<GroundingPage> createState() => _GroundingPageState();
 }
 
-class _GroundingPageState extends State<GroundingPage> {
+class _GroundingPageState extends State<GroundingPage>
+    with SingleTickerProviderStateMixin {
   static const _transitionDelay = Duration(milliseconds: 550);
 
   static const _steps = <_GroundingStep>[
     _GroundingStep(
       title: 'Visual Grounding',
       instruction:
-          'Look around and notice 5 specific things you can clearly see.',
+          'Think of one thing you can clearly see, then tap the glowing stone.',
       asset: 'assets/meditation/ground_visual.png',
       imageRect: Rect.fromLTWH(-0.05, 112.86, 408.60, 681.28),
       tapMode: _GroundingTapMode.individualTargets,
@@ -74,7 +75,7 @@ class _GroundingPageState extends State<GroundingPage> {
     _GroundingStep(
       title: 'Tactile Grounding',
       instruction:
-          'Notice 4 things you can physically touch, focusing on their texture or temperature.',
+          'Notice one texture or temperature, then tap the glowing stone.',
       asset: 'assets/meditation/ground_tactile.png',
       imageRect: Rect.fromLTWH(0, 110.51, 393, 698.30),
       tapMode: _GroundingTapMode.individualTargets,
@@ -90,8 +91,7 @@ class _GroundingPageState extends State<GroundingPage> {
     ),
     _GroundingStep(
       title: 'Auditory Grounding',
-      instruction:
-          'Listen closely and identify 3 distinct sounds happening in your environment right now.',
+      instruction: 'Listen for one distinct sound, then tap the glowing stone.',
       asset: 'assets/meditation/ground_auditory.png',
       imageRect: Rect.fromLTWH(-3.49, 110, 403.53, 717),
       tapMode: _GroundingTapMode.wholeScene,
@@ -106,7 +106,7 @@ class _GroundingPageState extends State<GroundingPage> {
     _GroundingStep(
       title: 'Olfactory Grounding',
       instruction:
-          'Find 2 things you can smell, or recall your favorite calming scent.',
+          'Notice or recall one calming scent, then tap the glowing stone.',
       asset: 'assets/meditation/ground_olfactory.png',
       imageRect: Rect.fromLTWH(0, 112.66, 393.36, 698.94),
       tapMode: _GroundingTapMode.individualTargets,
@@ -120,8 +120,7 @@ class _GroundingPageState extends State<GroundingPage> {
     ),
     _GroundingStep(
       title: 'Self Grounding',
-      instruction:
-          'Name 1 concrete, reassuring thing you know is true right now.',
+      instruction: 'Name one reassuring fact, then tap the glowing stone.',
       asset: 'assets/meditation/ground_self.png',
       imageRect: Rect.fromLTWH(0, 110, 393, 660),
       tapMode: _GroundingTapMode.wholeScene,
@@ -139,9 +138,43 @@ class _GroundingPageState extends State<GroundingPage> {
   int _stepIndex = 0;
   bool _music = true;
   bool _transitioning = false;
+  bool _manualStaticMode = false;
+  bool _systemReducedMotion = false;
+  late final AnimationController _pulseController;
+
+  bool get _staticMode => _manualStaticMode || _systemReducedMotion;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1150),
+      lowerBound: 0,
+      upperBound: 1,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _systemReducedMotion = prefersReducedMotion(context);
+    _syncPulse();
+  }
+
+  void _syncPulse() {
+    if (_staticMode) {
+      _pulseController
+        ..stop()
+        ..value = 0.55;
+    } else if (!_pulseController.isAnimating) {
+      unawaited(_pulseController.repeat(reverse: true));
+    }
+  }
 
   @override
   void dispose() {
+    _pulseController.dispose();
     unawaited(widget.audio.pause());
     super.dispose();
   }
@@ -149,6 +182,7 @@ class _GroundingPageState extends State<GroundingPage> {
   Future<void> _activateTarget(int targetIndex) async {
     if (_transitioning || _completed[_stepIndex].contains(targetIndex)) return;
 
+    unawaited(HapticFeedback.lightImpact());
     setState(() => _completed[_stepIndex].add(targetIndex));
     if (_completed[_stepIndex].length < _steps[_stepIndex].targets.length) {
       return;
@@ -214,6 +248,12 @@ class _GroundingPageState extends State<GroundingPage> {
   Widget build(BuildContext context) {
     final step = _steps[_stepIndex];
     final completed = _completed[_stepIndex];
+    final nextTargetIndex = () {
+      for (var index = 0; index < step.targets.length; index++) {
+        if (!completed.contains(index)) return index;
+      }
+      return null;
+    }();
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -263,6 +303,7 @@ class _GroundingPageState extends State<GroundingPage> {
               step.targets[targetIndex],
               targetIndex,
               completed.contains(targetIndex),
+              nextTargetIndex == targetIndex,
               step.tapMode == _GroundingTapMode.individualTargets,
             ),
           Positioned.fromRect(
@@ -355,6 +396,27 @@ class _GroundingPageState extends State<GroundingPage> {
             ),
           ),
           Positioned(
+            left: 286,
+            top: 132,
+            child: IconButton(
+              key: const ValueKey('grounding-static-mode'),
+              tooltip: _staticMode ? 'Static mode on' : 'Turn off motion',
+              onPressed: _systemReducedMotion
+                  ? null
+                  : () {
+                      setState(() => _manualStaticMode = !_manualStaticMode);
+                      _syncPulse();
+                    },
+              icon: Icon(
+                _staticMode
+                    ? Icons.motion_photos_off_outlined
+                    : Icons.motion_photos_auto_outlined,
+                size: 24,
+                color: _staticMode ? const Color(0xFFC640A3) : Colors.black45,
+              ),
+            ),
+          ),
+          Positioned(
             left: 335,
             top: 60,
             child: GestureDetector(
@@ -393,42 +455,65 @@ class _GroundingPageState extends State<GroundingPage> {
   Widget _buildTarget(
     _GroundingTarget target,
     int targetIndex,
-    bool active,
+    bool completed,
+    bool isNext,
     bool interactive,
   ) {
     final glow = IgnorePointer(
-      child: AnimatedOpacity(
+      child: Stack(
         key: ValueKey('grounding-glow-$_stepIndex-$targetIndex'),
-        opacity: active ? 1 : 0,
-        duration: const Duration(milliseconds: 320),
-        child: AnimatedScale(
-          scale: active ? 1 : 0.72,
-          duration: const Duration(milliseconds: 320),
-          curve: Curves.easeOutBack,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              gradient: RadialGradient(
-                colors: [
-                  const Color(0xFFFFE229).withValues(alpha: 0),
-                  const Color(0xFFFFE229).withValues(alpha: 0.08),
-                  const Color(0xFFFFE229).withValues(alpha: 0.58),
-                  const Color(0xFFFFE229).withValues(alpha: 0),
-                ],
-                stops: const [0, 0.34, 0.72, 1],
+        fit: StackFit.expand,
+        children: [
+          if (isNext)
+            AnimatedBuilder(
+              animation: _pulseController,
+              builder: (_, child) {
+                final pulse = _staticMode ? 0.55 : _pulseController.value;
+                return Transform.scale(
+                  scale: 0.91 + 0.11 * pulse,
+                  child: Opacity(opacity: 0.62 + 0.38 * pulse, child: child),
+                );
+              },
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFFFFE229).withValues(alpha: 0.05),
+                      const Color(0xFFFFE229).withValues(alpha: 0.28),
+                      const Color(0xFFFFE229).withValues(alpha: 0.72),
+                      const Color(0xFFFFE229).withValues(alpha: 0.04),
+                    ],
+                    stops: const [0, 0.36, 0.72, 1],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFFE229).withValues(alpha: 0.55),
+                      blurRadius: 22,
+                      spreadRadius: 4,
+                    ),
+                  ],
+                ),
               ),
-              boxShadow: active
-                  ? [
-                      BoxShadow(
-                        color: const Color(0xFFFFE229).withValues(alpha: 0.42),
-                        blurRadius: 18,
-                        spreadRadius: 3,
-                      ),
-                    ]
-                  : const [],
             ),
-          ),
-        ),
+          if (completed)
+            Center(
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFE229).withValues(alpha: 0.92),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: const Icon(
+                  Icons.check,
+                  size: 18,
+                  color: Color(0xFFC640A3),
+                ),
+              ),
+            ),
+        ],
       ),
     );
 
@@ -438,14 +523,20 @@ class _GroundingPageState extends State<GroundingPage> {
       width: target.width,
       height: target.height,
       child: Semantics(
-        button: interactive,
-        selected: active,
-        label: '${_steps[_stepIndex].title} item ${targetIndex + 1}',
+        button: interactive && isNext,
+        selected: completed,
+        label: completed
+            ? '${_steps[_stepIndex].title} item ${targetIndex + 1}, complete'
+            : isNext
+            ? '${_steps[_stepIndex].title} item ${targetIndex + 1}, next glowing stone'
+            : '${_steps[_stepIndex].title} item ${targetIndex + 1}',
         child: interactive
             ? GestureDetector(
                 key: ValueKey('grounding-target-$_stepIndex-$targetIndex'),
                 behavior: HitTestBehavior.translucent,
-                onTap: () => unawaited(_activateTarget(targetIndex)),
+                onTap: isNext
+                    ? () => unawaited(_activateTarget(targetIndex))
+                    : null,
                 child: glow,
               )
             : glow,

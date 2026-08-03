@@ -6,7 +6,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import '../data/auth_service.dart';
-import '../data/app_state_store.dart';
+import '../data/cognitive_correction_repository.dart';
 import '../data/diary_repository.dart';
 import '../models/diary.dart';
 import 'mood_chart_page.dart';
@@ -28,7 +28,7 @@ class ReportPageState extends State<ReportPage> {
   Map<String, Diary> _byDate = {};
   List<Diary> _sorted = [];
   bool _loading = true;
-  Map<String, double> _biasScores = {};
+  List<CcRecord> _corrections = [];
 
   /// 显示两周：第一行 = _weekStart 起 7 天（表头标注这一行），第二行 = 次周。
   late DateTime _weekStart;
@@ -43,21 +43,27 @@ class ReportPageState extends State<ReportPage> {
     final today = Diary.dayOf(DateTime.now());
     final monday = today.subtract(Duration(days: today.weekday - 1));
     _weekStart = monday.subtract(const Duration(days: 7)); // 上周 + 本周
+    CcRepo.changes.addListener(_onCorrectionsChanged);
     reload();
   }
 
+  @override
+  void dispose() {
+    CcRepo.changes.removeListener(_onCorrectionsChanged);
+    super.dispose();
+  }
+
+  void _onCorrectionsChanged() => reload();
+
   Future<void> reload() async {
-    final results = await Future.wait([
-      widget.repo.getAll(),
-      CognitiveBiasStore.load(),
-    ]);
+    final results = await Future.wait([widget.repo.getAll(), CcRepo.all()]);
     final all = results[0] as List<Diary>;
-    final biasScores = results[1] as Map<String, double>;
+    final corrections = results[1] as List<CcRecord>;
     if (!mounted) return;
     setState(() {
       _sorted = all;
       _byDate = {for (final d in all) d.dateKey: d};
-      _biasScores = biasScores;
+      _corrections = corrections;
       _loading = false;
     });
     // 软提示：进入 Report 且还是匿名 → 引导绑定 Google（见决策文档 §2）。
@@ -111,11 +117,16 @@ class ReportPageState extends State<ReportPage> {
     buffer
       ..writeln()
       ..writeln('COGNITIVE BIAS INSIGHTS');
-    if (_biasScores.isEmpty) {
+    if (_corrections.isEmpty) {
       buffer.writeln('No cognitive bias results yet.');
     } else {
-      for (final entry in _biasScores.entries) {
-        buffer.writeln('${entry.key}: ${entry.value.toStringAsFixed(1)}');
+      for (final record in _corrections) {
+        buffer.writeln(
+          '${DateFormat('yyyy.MM.dd').format(record.createdAt)}  '
+          '${record.distortions.join(', ')}',
+        );
+        buffer.writeln('  Original: ${record.situation}');
+        buffer.writeln('  Balanced: ${record.balancedThought}');
       }
     }
     buffer
@@ -443,6 +454,11 @@ class ReportPageState extends State<ReportPage> {
 
   // ---------- Achievements 卡（v1 占位） ----------
   Widget _achievementsCard() {
+    final weekly = _weeklyCorrectionCounts();
+    final weekMax = weekly.fold<int>(
+      1,
+      (max, value) => value > max ? value : max,
+    );
     return Positioned(
       left: 208,
       top: 303,
@@ -472,15 +488,17 @@ class ReportPageState extends State<ReportPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        for (final h in [40.0, 70.0, 30.0, 85.0, 55.0])
+                        for (var index = 0; index < weekly.length; index++)
                           Container(
-                            width: 12,
-                            height: h,
+                            width: 10,
+                            height: weekly[index] == 0
+                                ? 6
+                                : 18 + 62 * weekly[index] / weekMax,
                             margin: const EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(
-                              color: const Color(
-                                0xFFFFA8CE,
-                              ).withValues(alpha: 0.7),
+                              color: weekly[index] == 0
+                                  ? const Color(0xFFE8E8E8)
+                                  : const Color(0xFFFFA8CE),
                               borderRadius: BorderRadius.circular(6),
                             ),
                           ),
@@ -489,13 +507,13 @@ class ReportPageState extends State<ReportPage> {
                   ),
                 ),
               ),
-              const Positioned(
+              Positioned(
                 left: 11,
                 top: 138,
-                child: Text(
-                  'Achievements',
+                child: const Text(
+                  'Cognitive Corrections',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: Colors.black,
                   ),
@@ -505,7 +523,7 @@ class ReportPageState extends State<ReportPage> {
                 left: 11,
                 top: 162,
                 child: Text(
-                  'Gain badges, visible peace.',
+                  '${_corrections.length} completed · weekly bars',
                   style: TextStyle(
                     fontSize: 9,
                     color: Colors.black.withValues(alpha: 0.5),
@@ -517,6 +535,17 @@ class ReportPageState extends State<ReportPage> {
         ),
       ),
     );
+  }
+
+  List<int> _weeklyCorrectionCounts() {
+    final today = Diary.dayOf(DateTime.now());
+    final monday = today.subtract(Duration(days: today.weekday - 1));
+    return List.generate(7, (index) {
+      final day = monday.add(Duration(days: index));
+      return _corrections
+          .where((record) => Diary.dayOf(record.createdAt) == day)
+          .length;
+    });
   }
 
   Future<void> _showCalendarDialog() {
@@ -666,12 +695,7 @@ class ReportPageState extends State<ReportPage> {
   }
 
   Future<void> _showAchievementsDialog() {
-    final calmCount = _sorted.length;
-    final hazeCount = _sorted.where((entry) => entry.moodScore <= 3).length;
-    final talkCount = _sorted
-        .where((entry) => entry.content.trim().isNotEmpty)
-        .length;
-    final counts = [calmCount, hazeCount, talkCount];
+    final counts = _weeklyCorrectionCounts();
     final maxCount = counts.fold<int>(
       1,
       (value, item) => item > value ? item : value,
@@ -713,7 +737,7 @@ class ReportPageState extends State<ReportPage> {
                 ],
               ),
               const Text(
-                'Emotional Achievement Counts',
+                'Cognitive Corrections Completed',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 24),
@@ -731,27 +755,22 @@ class ReportPageState extends State<ReportPage> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _achievementBar(
-                        'Calm\nMaster',
-                        counts[0],
-                        maxCount,
-                        const Color(0xFF69B5FA),
-                        Icons.shield_outlined,
-                      ),
-                      _achievementBar(
-                        'Haze\nBreaker',
-                        counts[1],
-                        maxCount,
-                        const Color(0xFFB46DEB),
-                        Icons.auto_awesome,
-                      ),
-                      _achievementBar(
-                        'Direct\nTalker',
-                        counts[2],
-                        maxCount,
-                        const Color(0xFF74D6AC),
-                        Icons.chat_bubble_outline,
-                      ),
+                      for (var index = 0; index < counts.length; index++)
+                        _achievementBar(
+                          const [
+                            'Mon',
+                            'Tue',
+                            'Wed',
+                            'Thu',
+                            'Fri',
+                            'Sat',
+                            'Sun',
+                          ][index],
+                          counts[index],
+                          maxCount,
+                          const Color(0xFFC640A3),
+                          Icons.check,
+                        ),
                     ],
                   ),
                 ),
@@ -770,9 +789,9 @@ class ReportPageState extends State<ReportPage> {
     Color color,
     IconData icon,
   ) {
-    final height = 35 + 115 * count / maxCount;
+    final height = count == 0 ? 5.0 : 18 + 112 * count / maxCount;
     return SizedBox(
-      width: 72,
+      width: 34,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -782,7 +801,7 @@ class ReportPageState extends State<ReportPage> {
           ),
           const SizedBox(height: 3),
           Container(
-            width: 44,
+            width: 24,
             height: height,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.8),
@@ -792,15 +811,15 @@ class ReportPageState extends State<ReportPage> {
             ),
           ),
           CircleAvatar(
-            radius: 16,
+            radius: 10,
             backgroundColor: color.withValues(alpha: 0.2),
-            child: Icon(icon, size: 18, color: color),
+            child: Icon(icon, size: 12, color: color),
           ),
           const SizedBox(height: 4),
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 9, height: 1.05),
+            style: const TextStyle(fontSize: 8, height: 1.05),
           ),
         ],
       ),
@@ -835,7 +854,44 @@ class ReportPageState extends State<ReportPage> {
               ),
             ),
             // 三个柔和气泡（装饰）
-            if (_biasScores.isNotEmpty) ..._biasBubbles(),
+            if (_corrections.isEmpty)
+              const Positioned(
+                left: 28,
+                right: 28,
+                top: 66,
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.bubble_chart_outlined,
+                      color: Colors.black26,
+                      size: 42,
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      'Complete your first cognitive correction to reveal bias patterns.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.4,
+                        color: Colors.black45,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else ...[
+              ..._biasBubbles(),
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 10,
+                child: Text(
+                  _biasTrendText(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 9, color: Colors.black45),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -843,33 +899,41 @@ class ReportPageState extends State<ReportPage> {
   }
 
   List<Widget> _biasBubbles() {
-    const categories = [
-      CognitiveBiasStore.leftOnRead,
-      CognitiveBiasStore.selfWorth,
-      CognitiveBiasStore.mindReading,
-    ];
+    final counts = <String, int>{};
+    for (final correction in _corrections) {
+      for (final bias in correction.distortions) {
+        counts[bias] = (counts[bias] ?? 0) + 1;
+      }
+    }
+    final entries = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final visible = entries.take(3).toList();
     const colors = [Color(0xFFDCE6FA), Color(0xFFD6F3EC), Color(0xFFFBDDE8)];
-    const centers = [Offset(90, 151), Offset(171, 91), Offset(273, 125)];
-    final values = [
-      for (final category in categories) _biasScores[category] ?? 0.0,
-    ];
-    final total = values.fold<double>(0, (sum, value) => sum + value);
-    final maxValue = values.fold<double>(
-      0,
-      (value, item) => item > value ? item : value,
-    );
+    const centers = [Offset(78, 127), Offset(173, 102), Offset(270, 125)];
+    final maxValue = visible.isEmpty ? 1 : visible.first.value;
     return [
-      for (var i = 0; i < categories.length; i++)
-        if (_biasScores.containsKey(categories[i]))
-          _bubble(
-            centers[i].dx,
-            centers[i].dy,
-            maxValue == 0 ? 68 : 68 + 38 * values[i] / maxValue,
-            colors[i],
-            categories[i],
-            total == 0 ? 0 : (values[i] * 100 / total).round(),
-          ),
+      for (var i = 0; i < visible.length; i++)
+        _bubble(
+          centers[i].dx,
+          centers[i].dy,
+          56 + 38 * visible[i].value / maxValue,
+          colors[i],
+          visible[i].key,
+          visible[i].value,
+        ),
     ];
+  }
+
+  String _biasTrendText() {
+    final counts = <String, int>{};
+    for (final correction in _corrections) {
+      for (final bias in correction.distortions) {
+        counts[bias] = (counts[bias] ?? 0) + 1;
+      }
+    }
+    if (counts.isEmpty) return '';
+    final top = counts.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    return 'Most frequent: ${top.key} · ${top.value} occurrence${top.value == 1 ? '' : 's'}';
   }
 
   Widget _bubble(
@@ -878,7 +942,7 @@ class ReportPageState extends State<ReportPage> {
     double size,
     Color color,
     String label,
-    int percent,
+    int count,
   ) {
     return Positioned(
       left: centerX - size / 2,
@@ -902,14 +966,14 @@ class ReportPageState extends State<ReportPage> {
               style: TextStyle(
                 fontSize: size > 88 ? 11 : 9,
                 fontWeight: FontWeight.w600,
-                color: label == CognitiveBiasStore.mindReading
+                color: label == 'Mind Reading'
                     ? const Color(0xFFC640A3)
                     : const Color(0xFF6E62C7),
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              '$percent%',
+              '$count×',
               style: TextStyle(
                 fontSize: 9,
                 color: Colors.black.withValues(alpha: 0.45),

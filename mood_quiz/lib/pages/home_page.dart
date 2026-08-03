@@ -77,7 +77,8 @@ class HomePageState extends State<HomePage> {
 
   Widget _canvas() {
     final todayW = _today?.weather ?? Weather.bright; // 未选显示 Great(bright)
-    final todayLabel = _today?.weather.label ?? 'Great';
+    final todayLabel = _today?.weather.label ?? 'Not recorded';
+    final hasTodayMood = _today != null;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -153,38 +154,58 @@ class HomePageState extends State<HomePage> {
             height: 178,
             // 注意：卡片填充是半透明的，若加 BoxShadow，阴影会透过填充显示成
             // 一块灰黑方块（CSS 的 box-shadow 会裁掉盒内部分，Flutter 不会），故不加阴影。
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.all(Radius.circular(20)),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xCCFFF7D9), Color(0xCCFFFDF1)],
-              ),
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.all(Radius.circular(20)),
+              color: hasTodayMood ? null : const Color(0xE8EFEFEF),
+              gradient: hasTodayMood
+                  ? const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xCCFFF7D9), Color(0xCCFFFDF1)],
+                    )
+                  : null,
             ),
           ),
         ),
         // 心情卡天气图标
         Positioned(
           left: 25,
+          top: 141,
+          width: 343,
+          height: 178,
+          child: GestureDetector(
+            key: const Key('today-mood-card'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _openWrite(DateTime.now(), existing: _today),
+          ),
+        ),
+        Positioned(
+          left: 25,
           top: 143,
           width: 343,
           height: 112,
-          child: Center(
-            child: SizedBox.square(
-              key: const Key('today-weather-icon'),
-              dimension: 112,
-              child: Image.asset(
-                todayW.glyphAsset,
-                // Center-crop the source to a square so stray fragments at
-                // the outer edges never enter the mood card.
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-                errorBuilder: (_, _, _) => Center(
-                  child: Text(
-                    todayW.emoji,
-                    style: const TextStyle(fontSize: 72),
-                  ),
-                ),
+          child: IgnorePointer(
+            child: Center(
+              child: SizedBox.square(
+                key: const Key('today-weather-icon'),
+                dimension: 112,
+                child: hasTodayMood
+                    ? Image.asset(
+                        todayW.glyphAsset,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.center,
+                        errorBuilder: (_, _, _) => Center(
+                          child: Text(
+                            todayW.emoji,
+                            style: const TextStyle(fontSize: 72),
+                          ),
+                        ),
+                      )
+                    : const Icon(
+                        Icons.cloud_outlined,
+                        size: 72,
+                        color: Color(0xFF9D9D9D),
+                      ),
               ),
             ),
           ),
@@ -197,10 +218,12 @@ class HomePageState extends State<HomePage> {
           child: Center(
             child: Text(
               "Today's Mood: $todayLabel",
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFFC640A3),
+                color: hasTodayMood
+                    ? const Color(0xFFC640A3)
+                    : const Color(0xFF777777),
               ),
             ),
           ),
@@ -212,9 +235,8 @@ class HomePageState extends State<HomePage> {
           child: Center(
             child: GestureDetector(
               key: const Key('today-mood-detail'),
-              onTap: _today == null
-                  ? null
-                  : () => _openWrite(_today!.date, existing: _today),
+              onTap: () =>
+                  _openWrite(_today?.date ?? DateTime.now(), existing: _today),
               behavior: HitTestBehavior.opaque,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -222,12 +244,14 @@ class HomePageState extends State<HomePage> {
                   vertical: 4,
                 ),
                 child: Text(
-                  'Click to View more Detail',
+                  hasTodayMood
+                      ? 'Click to View more Detail'
+                      : 'Start your first mood record',
                   style: TextStyle(
                     fontSize: 12,
-                    color: _today == null
-                        ? const Color(0x80E0A800)
-                        : const Color(0xFFE0A800),
+                    color: hasTodayMood
+                        ? const Color(0xFFE0A800)
+                        : const Color(0xFF777777),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
