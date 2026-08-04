@@ -119,6 +119,11 @@ void main() {
     }
 
     expect(find.textContaining("You've finished"), findsOneWidget);
+    expect(find.byKey(const Key('quiz-confetti')), findsOneWidget);
     expect(find.text('Done'), findsOneWidget);
+
+    // The celebration runs for three seconds and then settles on the result.
+    await tester.pump(const Duration(seconds: 3));
+    expect(tester.takeException(), isNull);
   });
 }

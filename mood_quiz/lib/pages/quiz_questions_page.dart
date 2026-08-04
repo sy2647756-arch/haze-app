@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../data/app_state_store.dart';
 import 'objective_check_page.dart';
@@ -20,7 +21,8 @@ class QuizQuestionsPage extends StatefulWidget {
   State<QuizQuestionsPage> createState() => _QuizQuestionsPageState();
 }
 
-class _QuizQuestionsPageState extends State<QuizQuestionsPage> {
+class _QuizQuestionsPageState extends State<QuizQuestionsPage>
+    with SingleTickerProviderStateMixin {
   static const _mint = Color(0xFFEAFEFD);
   static const _border = Color(0xFFD2F0EF);
   static const _fill = Color(0xFFAAE5E2);
@@ -31,8 +33,26 @@ class _QuizQuestionsPageState extends State<QuizQuestionsPage> {
   int? _picked; // 当前题已选中的选项（高亮用）
   final List<int> _answers = [];
   bool _done = false;
+  late final AnimationController _confettiController;
+  late final List<_ConfettiParticle> _confettiParticles;
 
   List<QuizQuestion> get _questions => widget.data.questions;
+
+  @override
+  void initState() {
+    super.initState();
+    _confettiController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+    _confettiParticles = _createConfettiParticles();
+  }
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    super.dispose();
+  }
 
   void _choose(int i) {
     if (_picked != null) return; // 防抖：本题已选
@@ -48,6 +68,9 @@ class _QuizQuestionsPageState extends State<QuizQuestionsPage> {
           cb(_answers);
         } else {
           setState(() => _done = true);
+          if (!MediaQuery.disableAnimationsOf(context)) {
+            _confettiController.forward(from: 0);
+          }
         }
       } else {
         setState(() {
@@ -108,7 +131,28 @@ class _QuizQuestionsPageState extends State<QuizQuestionsPage> {
           ),
           // 进度条
           Positioned(left: 72, top: 96, child: _progressBar()),
-          if (!_done) ..._questionView() else _completedView(),
+          if (!_done)
+            ..._questionView()
+          else ...[
+            _completedView(),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Semantics(
+                  label: 'Celebration confetti animation',
+                  child: AnimatedBuilder(
+                    key: const Key('quiz-confetti'),
+                    animation: _confettiController,
+                    builder: (_, _) => CustomPaint(
+                      painter: _ConfettiPainter(
+                        progress: _confettiController.value,
+                        particles: _confettiParticles,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -369,5 +413,104 @@ class _QuizQuestionsPageState extends State<QuizQuestionsPage> {
         builder: (_) => TreeHolePage(importedText: _answerExport()),
       ),
     );
+  }
+
+  List<_ConfettiParticle> _createConfettiParticles() {
+    final random = math.Random(20260804);
+    const colors = [
+      Color(0xFFFF4D9D),
+      Color(0xFFFFD928),
+      Color(0xFF43C6E8),
+      Color(0xFF8E78FF),
+      Color(0xFF63D6A2),
+      Color(0xFFFF8A45),
+    ];
+    return List.generate(64, (index) {
+      return _ConfettiParticle(
+        angle: -math.pi + random.nextDouble() * math.pi,
+        speed: 145 + random.nextDouble() * 175,
+        size: 4 + random.nextDouble() * 7,
+        delay: random.nextDouble() * 0.18,
+        rotation: random.nextDouble() * math.pi * 2,
+        spin: (random.nextDouble() * 2 - 1) * math.pi * 5,
+        color: colors[index % colors.length],
+        round: index % 4 == 0,
+      );
+    });
+  }
+}
+
+class _ConfettiParticle {
+  const _ConfettiParticle({
+    required this.angle,
+    required this.speed,
+    required this.size,
+    required this.delay,
+    required this.rotation,
+    required this.spin,
+    required this.color,
+    required this.round,
+  });
+
+  final double angle;
+  final double speed;
+  final double size;
+  final double delay;
+  final double rotation;
+  final double spin;
+  final Color color;
+  final bool round;
+}
+
+class _ConfettiPainter extends CustomPainter {
+  const _ConfettiPainter({required this.progress, required this.particles});
+
+  final double progress;
+  final List<_ConfettiParticle> particles;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0 || progress >= 1) return;
+    final origin = Offset(size.width / 2, size.height * 0.47);
+    for (final particle in particles) {
+      if (progress <= particle.delay) continue;
+      final time = ((progress - particle.delay) / (1 - particle.delay)).clamp(
+        0.0,
+        1.0,
+      );
+      final travel = time * 1.35;
+      final position = Offset(
+        origin.dx + math.cos(particle.angle) * particle.speed * travel,
+        origin.dy +
+            math.sin(particle.angle) * particle.speed * travel +
+            235 * time * time,
+      );
+      final opacity = (1 - math.pow(time, 2.4)).clamp(0.0, 1.0).toDouble();
+      final paint = Paint()..color = particle.color.withValues(alpha: opacity);
+      canvas.save();
+      canvas.translate(position.dx, position.dy);
+      canvas.rotate(particle.rotation + particle.spin * time);
+      if (particle.round) {
+        canvas.drawCircle(Offset.zero, particle.size * 0.55, paint);
+      } else {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(
+              center: Offset.zero,
+              width: particle.size,
+              height: particle.size * 1.8,
+            ),
+            const Radius.circular(1.5),
+          ),
+          paint,
+        );
+      }
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfettiPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }
