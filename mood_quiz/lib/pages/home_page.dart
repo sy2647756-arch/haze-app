@@ -91,21 +91,6 @@ class HomePageState extends State<HomePage> {
                 const ColoredBox(color: Color(0xFFFDF3E6)),
           ),
         ),
-        // 中央吉祥物（半透明）
-        Positioned(
-          left: 70,
-          top: 234,
-          width: 255,
-          height: 383,
-          child: Opacity(
-            opacity: 0.5,
-            child: Image.asset(
-              'assets/home/mascot.png',
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
-            ),
-          ),
-        ),
         // 日期
         Positioned(
           left: 25,

@@ -75,6 +75,15 @@ void main() {
     expect(find.text('Record now'), findsNWidgets(2));
     expect(find.text('Hazy'), findsNothing);
     expect(find.text('Breezy'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName == 'assets/home/mascot.png',
+      ),
+      findsNothing,
+    );
 
     // 写入今天，reload 后反映当日心情
     await repo.upsert(

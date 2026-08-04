@@ -15,15 +15,23 @@ Future<void> _pump(WidgetTester tester, Widget page) async {
 }
 
 void main() {
-  testWidgets('quiz home: tapping Objective Check opens the list', (tester) async {
+  testWidgets('quiz home: tapping Objective Check opens the list', (
+    tester,
+  ) async {
     await _pump(tester, const QuizHomePage());
+    expect(find.text('Relationship Check-ins'), findsOneWidget);
+    expect(find.textContaining('communication, boundaries'), findsOneWidget);
+    expect(find.text('Thinking Pattern Check'), findsOneWidget);
+    expect(find.textContaining('mind-reading'), findsOneWidget);
     // Solo tab, first card (Objective Check) at ~y300.
     await tester.tapAt(const Offset(196, 360));
     await tester.pumpAndSettle();
     expect(find.byType(ObjectiveCheckPage), findsOneWidget);
   });
 
-  testWidgets('objective check: tapping a card opens its intro', (tester) async {
+  testWidgets('objective check: tapping a card opens its intro', (
+    tester,
+  ) async {
     await _pump(tester, const ObjectiveCheckPage());
     // Chat Check card at ~y160-338.
     await tester.tapAt(const Offset(196, 240));
@@ -32,22 +40,29 @@ void main() {
     expect(find.text('Chat Check'), findsOneWidget);
   });
 
-  testWidgets('intro page shows Goal / Research / How it works and Start quiz',
-      (tester) async {
-    await _pump(tester,
-        const QuizIntroPage(data: QuizIntroData.depthBoundaryRadar));
+  testWidgets(
+    'intro page shows Goal / Research / How it works and Start quiz',
+    (tester) async {
+      await _pump(
+        tester,
+        const QuizIntroPage(data: QuizIntroData.depthBoundaryRadar),
+      );
 
-    expect(find.text('Depth & Boundary Radar'), findsOneWidget);
-    expect(find.text('Objective Check'), findsOneWidget); // breadcrumb
-    expect(find.text('Goal'), findsOneWidget);
-    expect(find.text('Research'), findsOneWidget);
-    expect(find.text('Start quiz'), findsOneWidget); // 固定底部
+      expect(find.text('Depth & Boundary Radar'), findsOneWidget);
+      expect(find.text('Objective Check'), findsOneWidget); // breadcrumb
+      expect(find.text('Goal'), findsOneWidget);
+      expect(find.text('Research'), findsOneWidget);
+      expect(find.text('Start quiz'), findsOneWidget); // 固定底部
 
-    // How it works 在 ListView 下方，滚动到它。
-    await tester.scrollUntilVisible(find.text('How it works'), 300,
-        scrollable: find.byType(Scrollable).first);
-    expect(find.text('How it works'), findsOneWidget);
-  });
+      // How it works 在 ListView 下方，滚动到它。
+      await tester.scrollUntilVisible(
+        find.text('How it works'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('How it works'), findsOneWidget);
+    },
+  );
 
   testWidgets('intro bookmark toggles', (tester) async {
     await _pump(tester, const QuizIntroPage(data: QuizIntroData.chatCheck));
@@ -57,8 +72,9 @@ void main() {
     expect(find.byIcon(Icons.bookmark), findsOneWidget);
   });
 
-  testWidgets('all sections have 6 questions each with 3 options',
-      (tester) async {
+  testWidgets('all sections have 6 questions each with 3 options', (
+    tester,
+  ) async {
     for (final d in [
       QuizIntroData.chatCheck,
       QuizIntroData.depthBoundaryRadar,
@@ -84,13 +100,16 @@ void main() {
     expect(find.text('Cognitive Bias Test'), findsOneWidget); // breadcrumb
   });
 
-  testWidgets('questions page: answering all 6 reaches completion',
-      (tester) async {
-    await _pump(tester,
-        const QuizQuestionsPage(data: QuizIntroData.chatCheck));
+  testWidgets('questions page: answering all 6 reaches completion', (
+    tester,
+  ) async {
+    await _pump(tester, const QuizQuestionsPage(data: QuizIntroData.chatCheck));
 
     expect(find.text('Question 1 of 6'), findsOneWidget);
-    expect(find.text('Who usually initiates the conversation?'), findsOneWidget);
+    expect(
+      find.text('Who usually initiates the conversation?'),
+      findsOneWidget,
+    );
 
     // 每题点第一个选项（A），共 6 题；每次有 180ms 高亮延时。
     for (var i = 0; i < 6; i++) {

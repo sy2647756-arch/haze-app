@@ -25,10 +25,11 @@ class _QuizHomePageState extends State<QuizHomePage> {
         children: [
           Positioned.fill(
             child: Image.asset(
-                _solo ? 'assets/quiz/home_solo.png' : 'assets/quiz/home_coop.png',
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) =>
-                    const ColoredBox(color: Color(0xFFEAFEFD))),
+              _solo ? 'assets/quiz/home_solo.png' : 'assets/quiz/home_coop.png',
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) =>
+                  const ColoredBox(color: Color(0xFFEAFEFD)),
+            ),
           ),
           // 返回
           _tap(0, 52, 55, 48, () => Navigator.of(context).maybePop()),
@@ -38,24 +39,106 @@ class _QuizHomePageState extends State<QuizHomePage> {
           // 两张卡
           _tap(40, 300, 315, 135, () {
             if (_solo) {
-              Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const ObjectiveCheckPage()));
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ObjectiveCheckPage()),
+              );
             } else {
-              Navigator.of(context).push(MaterialPageRoute(
+              Navigator.of(context).push(
+                MaterialPageRoute(
                   builder: (_) => const QuizIntroPage(
-                      data: QuizIntroData.preferencesHabits)));
+                    data: QuizIntroData.preferencesHabits,
+                  ),
+                ),
+              );
             }
           }),
           _tap(40, 560, 315, 140, () {
             if (_solo) {
-              Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const CognitiveBiasPage()));
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const CognitiveBiasPage()),
+              );
             } else {
-              Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const WhatIfListPage()));
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const WhatIfListPage()));
             }
           }),
+          if (_solo) ...[
+            _folderLabel(
+              top: 300,
+              title: 'Relationship Check-ins',
+              intro:
+                  'Explore communication, boundaries, and real-life signals.',
+            ),
+            _folderLabel(
+              top: 566,
+              title: 'Thinking Pattern Check',
+              intro:
+                  'Notice rejection stress, mind-reading, and self-worth habits.',
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _folderLabel({
+    required double top,
+    required String title,
+    required String intro,
+  }) {
+    return Positioned(
+      left: 56,
+      top: top,
+      width: 281,
+      height: 126,
+      child: IgnorePointer(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(26, 27, 22, 18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFF8EBF2), Color(0xFFEEF2FA)],
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                height: 23,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFC640A3),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Expanded(
+                child: Text(
+                  intro,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    height: 1.25,
+                    color: Color(0xFF666666),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
