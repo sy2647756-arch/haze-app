@@ -108,18 +108,16 @@ class _QuizHomePageState extends State<QuizHomePage> {
             children: [
               SizedBox(
                 width: double.infinity,
-                height: 23,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFC640A3),
-                    ),
+                height: 24,
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    height: 1.1,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFC640A3),
                   ),
                 ),
               ),
@@ -130,8 +128,8 @@ class _QuizHomePageState extends State<QuizHomePage> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 11,
-                    height: 1.25,
+                    fontSize: 11.5,
+                    height: 1.3,
                     color: Color(0xFF666666),
                   ),
                 ),

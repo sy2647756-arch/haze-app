@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mood_quiz/data/cognitive_correction_repository.dart';
 import 'package:mood_quiz/data/diary_repository.dart';
 import 'package:mood_quiz/pages/report_page.dart';
+import 'package:mood_quiz/models/diary.dart';
+import 'package:mood_quiz/models/weather.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -50,5 +52,36 @@ void main() {
     expect(find.text('Mind Reading'), findsOneWidget);
     expect(find.text('2×'), findsOneWidget);
     expect(find.textContaining('Most frequent: Mind Reading'), findsOneWidget);
+  });
+
+  test('export includes all four report sections and their values', () {
+    final monday = DateTime(2026, 8, 3);
+    final csv = buildHazeReportCsv(
+      diaries: [
+        Diary(
+          date: monday,
+          weather: Weather.sunny,
+          content: 'Private diary text is not part of the report cards.',
+        ),
+      ],
+      corrections: [
+        CcRecord(
+          situation: 'They did not reply.',
+          distortions: const ['Mind Reading'],
+          balancedThought: 'I do not have the full context yet.',
+          createdAt: monday,
+        ),
+      ],
+      weekStart: monday,
+      generatedAt: DateTime(2026, 8, 4, 12, 30),
+    );
+
+    expect(csv, contains('1. WEEKLY MOOD CALENDAR'));
+    expect(csv, contains('2. MOOD CHANGE CHART'));
+    expect(csv, contains('3. COGNITIVE CORRECTIONS'));
+    expect(csv, contains('4. COGNITIVE BIAS INSIGHTS'));
+    expect(csv, contains('Sunny'));
+    expect(csv, contains('Mind Reading'));
+    expect(csv, isNot(contains('Private diary text')));
   });
 }

@@ -93,62 +93,28 @@ class ReportPageState extends State<ReportPage> {
   }
 
   String _buildExportReport() {
-    final generated = DateFormat('yyyy.MM.dd HH:mm').format(DateTime.now());
-    final buffer = StringBuffer()
-      ..writeln('HAZE EMOTIONAL WELLBEING REPORT')
-      ..writeln('Generated: $generated')
-      ..writeln()
-      ..writeln('MOOD HISTORY');
-
-    if (_sorted.isEmpty) {
-      buffer.writeln('No mood entries yet.');
-    } else {
-      final recent = [..._sorted]..sort((a, b) => b.date.compareTo(a.date));
-      for (final diary in recent.take(30)) {
-        buffer.writeln(
-          '${DateFormat('yyyy.MM.dd HH:mm').format(diary.date)}  '
-          '${diary.weather.label}  (${diary.moodScore}/7)',
-        );
-        final note = diary.content.trim();
-        if (note.isNotEmpty) buffer.writeln('  Note: $note');
-      }
-    }
-
-    buffer
-      ..writeln()
-      ..writeln('COGNITIVE BIAS INSIGHTS');
-    if (_corrections.isEmpty) {
-      buffer.writeln('No cognitive bias results yet.');
-    } else {
-      for (final record in _corrections) {
-        buffer.writeln(
-          '${DateFormat('yyyy.MM.dd').format(record.createdAt)}  '
-          '${record.distortions.join(', ')}',
-        );
-        buffer.writeln('  Original: ${record.situation}');
-        buffer.writeln('  Balanced: ${record.balancedThought}');
-      }
-    }
-    buffer
-      ..writeln()
-      ..writeln(
-        'This report is for personal reflection, not medical diagnosis.',
-      );
-    return buffer.toString();
+    return buildHazeReportCsv(
+      diaries: _sorted,
+      corrections: _corrections,
+      weekStart: _weekStart,
+      generatedAt: DateTime.now(),
+    );
   }
 
   Future<void> _shareReport(BuildContext sourceContext) async {
     final report = _buildExportReport();
     final fileName =
-        'haze-report-${DateFormat('yyyyMMdd-HHmm').format(DateTime.now())}.txt';
+        'haze-report-${DateFormat('yyyyMMdd-HHmm').format(DateTime.now())}.csv';
     final box = sourceContext.findRenderObject() as RenderBox?;
     try {
       await SharePlus.instance.share(
         ShareParams(
           title: 'Haze Report',
           subject: 'My Haze emotional wellbeing report',
-          text: 'My Haze emotional wellbeing report',
-          files: [XFile.fromData(utf8.encode(report), mimeType: 'text/plain')],
+          text: 'My Haze report with all four report sections.',
+          files: [
+            XFile.fromData(utf8.encode('\ufeff$report'), mimeType: 'text/csv'),
+          ],
           fileNameOverrides: [fileName],
           sharePositionOrigin: box == null
               ? null
@@ -984,6 +950,112 @@ class ReportPageState extends State<ReportPage> {
       ),
     );
   }
+}
+
+/// Builds the shareable version of the four cards shown on the Report page.
+/// Keeping this separate from the share sheet makes the exported data testable.
+String buildHazeReportCsv({
+  required List<Diary> diaries,
+  required List<CcRecord> corrections,
+  required DateTime weekStart,
+  required DateTime generatedAt,
+}) {
+  String cell(Object? value) {
+    final text = '${value ?? ''}'.replaceAll('"', '""');
+    return '"$text"';
+  }
+
+  void row(StringBuffer output, List<Object?> values) {
+    output.writeln(values.map(cell).join(','));
+  }
+
+  final byDate = {for (final diary in diaries) diary.dateKey: diary};
+  final sortedDiaries = [...diaries]..sort((a, b) => a.date.compareTo(b.date));
+  final generatedDay = Diary.dayOf(generatedAt);
+  final monday = generatedDay.subtract(
+    Duration(days: generatedDay.weekday - 1),
+  );
+  final weeklyCorrectionCounts = List.generate(7, (index) {
+    final day = monday.add(Duration(days: index));
+    return corrections
+        .where((record) => Diary.dayOf(record.createdAt) == day)
+        .length;
+  });
+  final biasCounts = <String, int>{};
+  for (final correction in corrections) {
+    for (final bias in correction.distortions) {
+      biasCounts[bias] = (biasCounts[bias] ?? 0) + 1;
+    }
+  }
+  final sortedBiases = biasCounts.entries.toList()
+    ..sort((a, b) {
+      final byCount = b.value.compareTo(a.value);
+      return byCount != 0 ? byCount : a.key.compareTo(b.key);
+    });
+
+  final output = StringBuffer();
+  row(output, ['HAZE REPORT']);
+  row(output, [
+    'Generated',
+    DateFormat('yyyy.MM.dd HH:mm').format(generatedAt),
+  ]);
+  output.writeln();
+
+  row(output, ['1. WEEKLY MOOD CALENDAR']);
+  row(output, ['Date', 'Mood', 'Score']);
+  for (var index = 0; index < 14; index++) {
+    final day = weekStart.add(Duration(days: index));
+    final diary = byDate[Diary.keyOf(day)];
+    row(output, [
+      DateFormat('yyyy.MM.dd').format(day),
+      diary?.weather.label ?? 'No record',
+      diary?.moodScore ?? '',
+    ]);
+  }
+  output.writeln();
+
+  row(output, ['2. MOOD CHANGE CHART']);
+  row(output, ['Date', 'Mood', 'Score']);
+  if (sortedDiaries.isEmpty) {
+    row(output, ['No mood records yet']);
+  } else {
+    for (final diary in sortedDiaries) {
+      row(output, [
+        DateFormat('yyyy.MM.dd').format(diary.date),
+        diary.weather.label,
+        diary.moodScore,
+      ]);
+    }
+  }
+  output.writeln();
+
+  row(output, ['3. COGNITIVE CORRECTIONS']);
+  row(output, ['Weekday', 'Date', 'Completed']);
+  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  for (var index = 0; index < 7; index++) {
+    row(output, [
+      weekdays[index],
+      DateFormat('yyyy.MM.dd').format(monday.add(Duration(days: index))),
+      weeklyCorrectionCounts[index],
+    ]);
+  }
+  row(output, ['Total completed', '', corrections.length]);
+  output.writeln();
+
+  row(output, ['4. COGNITIVE BIAS INSIGHTS']);
+  row(output, ['Thinking pattern', 'Occurrences']);
+  if (sortedBiases.isEmpty) {
+    row(output, ['No cognitive bias records yet', 0]);
+  } else {
+    for (final entry in sortedBiases) {
+      row(output, [entry.key, entry.value]);
+    }
+  }
+  output.writeln();
+  row(output, [
+    'For personal reflection only. This report is not a medical diagnosis.',
+  ]);
+  return output.toString();
 }
 
 /// 心情折线图：X = 真实日期，≤3 天连实线、>3 天虚线（见决策文档 §6.2）。
