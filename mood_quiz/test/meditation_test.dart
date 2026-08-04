@@ -21,7 +21,7 @@ void main() {
     expect(find.text('Reality Anchor'), findsOneWidget);
   });
 
-  testWidgets('breathing completes 3 cycles then opens Cozy Page', (
+  testWidgets('breathing runs for 2 minutes then opens Cozy Page', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(393, 852);
@@ -46,8 +46,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Cycle 1 / 3'), findsOneWidget);
-    for (var second = 0; second < 58; second++) {
+    expect(find.textContaining('2:00 remaining'), findsOneWidget);
+    for (var second = 0; second < 121; second++) {
       await tester.pump(const Duration(seconds: 1));
     }
     expect(

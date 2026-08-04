@@ -180,68 +180,95 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFCEEF6), Color(0xFFE8EEFF)],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _header(),
-              if (_step < 4) _progress(),
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 260),
-                  child: _stepBody(),
-                ),
-              ),
-              if (_step < 4) _continueButton(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _header() {
-    return SizedBox(
-      height: 62,
-      child: Row(
+      body: Stack(
         children: [
-          IconButton(onPressed: _back, icon: const Icon(Icons.chevron_left)),
-          const Expanded(
-            child: Text(
-              'Cognitive Correction',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          Positioned.fill(
+            child: Image.asset(
+              'assets/cc/bg.png',
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) =>
+                  const ColoredBox(color: Color(0xFFF2F5FF)),
             ),
           ),
-          IconButton(
-            tooltip: 'Correction History',
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const CcHistoryPage())),
-            icon: const Icon(Icons.history, color: _magenta),
+          SafeArea(
+            child: Column(
+              children: [
+                _header(),
+                if (_step < 4) _progress(),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 260),
+                    child: _stepBody(),
+                  ),
+                ),
+                if (_step < 4) _continueButton(),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
+  Widget _header() {
+    return SizedBox(
+      height: 96,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 38),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            const Center(
+              child: Text(
+                'Cognitive Correction',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+            ),
+            Positioned(
+              left: 8,
+              child: IconButton(
+                onPressed: _back,
+                icon: const Icon(Icons.chevron_left),
+              ),
+            ),
+            Positioned(
+              right: 48,
+              child: IconButton(
+                tooltip: 'Correction History',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CcHistoryPage()),
+                ),
+                icon: const Icon(Icons.history, color: _magenta, size: 21),
+              ),
+            ),
+            Positioned(
+              right: 10,
+              child: GestureDetector(
+                key: const ValueKey('correction-close'),
+                onTap: () => Navigator.of(context).maybePop(),
+                child: const CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Colors.white,
+                  child: Icon(Icons.close, size: 20, color: Colors.black87),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _progress() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 4, 24, 14),
+      padding: const EdgeInsets.fromLTRB(27, 2, 27, 10),
       child: Row(
         children: [
           for (var index = 0; index < 5; index++) ...[
             Expanded(
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 220),
-                height: 6,
+                height: 4,
                 decoration: BoxDecoration(
                   color: index <= _step ? _magenta : Colors.white60,
                   borderRadius: BorderRadius.circular(8),
@@ -270,32 +297,36 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
   }) {
     return ListView(
       key: ValueKey(_step),
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 18),
+      padding: const EdgeInsets.fromLTRB(27, 4, 27, 14),
       children: [
         Text(
           'STEP ${_step + 1} OF 5',
           style: const TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: FontWeight.w700,
             color: _magenta,
             letterSpacing: 1,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 7),
         Text(
           title,
-          style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w700),
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: _magenta,
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Text(
           subtitle,
           style: const TextStyle(
-            fontSize: 14,
+            fontSize: 12,
             height: 1.45,
             color: Colors.black54,
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
         ...children,
       ],
     );
@@ -504,10 +535,10 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
           Text(
             label,
             style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: Colors.black45,
-              letterSpacing: 0.5,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: _magenta,
+              letterSpacing: 0.25,
             ),
           ),
           const SizedBox(height: 5),
@@ -529,20 +560,27 @@ class _CognitiveCorrectionPageState extends State<CognitiveCorrectionPage> {
 
   Widget _continueButton() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 22),
-      child: FilledButton(
-        key: const ValueKey('correction-next'),
-        style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
-          backgroundColor: _magenta,
-          disabledBackgroundColor: _magenta.withValues(alpha: 0.28),
-          foregroundColor: _yellow,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+      child: Center(
+        child: SizedBox(
+          width: 247,
+          height: 48,
+          child: FilledButton(
+            key: const ValueKey('correction-next'),
+            style: FilledButton.styleFrom(
+              backgroundColor: _magenta,
+              disabledBackgroundColor: _magenta.withValues(alpha: 0.28),
+              foregroundColor: _yellow,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+            onPressed: _canContinue && !_saving
+                ? () => unawaited(_next())
+                : null,
+            child: Text(_saving ? 'Creating result…' : 'Next'),
           ),
         ),
-        onPressed: _canContinue && !_saving ? () => unawaited(_next()) : null,
-        child: Text(_saving ? 'Creating result…' : 'Continue'),
       ),
     );
   }

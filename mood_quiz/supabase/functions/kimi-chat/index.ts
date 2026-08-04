@@ -77,7 +77,8 @@ export default {
           body: JSON.stringify({
             model: Deno.env.get("KIMI_MODEL") || "kimi-k2.6",
             messages: [{ role: "system", content: systemPrompt }, ...messages],
-            max_tokens: 500,
+            thinking: { type: "disabled" },
+            max_tokens: 320,
             temperature: 1,
           }),
         },

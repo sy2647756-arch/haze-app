@@ -107,7 +107,7 @@ class _MeditationPageState extends State<MeditationPage> {
     MeditationMethod(
       title: 'Reality Anchor',
       subtitle: 'Based on CBT 5-4-3-2-1 Grounding Technique',
-      asset: 'assets/meditation/anchor_latest.png',
+      asset: 'assets/meditation/anchor_sharp.png',
       kind: MeditationKind.grounding,
     ),
   ];
@@ -341,14 +341,15 @@ class BreathingPage extends StatefulWidget {
 
 class _BreathingPageState extends State<BreathingPage>
     with SingleTickerProviderStateMixin {
-  // 4-7-8：吸气 4s、屏息 7s、呼气 8s。完成 3 个循环后进入 Cozy Page。
+  // 4-7-8：吸气 4s、屏息 7s、呼气 8s；完整练习持续 2 分钟。
   static const _phases = [('Breathe in', 4), ('Hold', 7), ('Breathe out', 8)];
-  static const _totalCycles = 3;
+  static const _sessionSeconds = 120;
 
   late final AnimationController _ctrl;
   int _phaseIndex = 0;
   int _cycle = 0;
   int _remaining = 4;
+  int _sessionRemaining = _sessionSeconds;
   Timer? _timer;
   bool _done = false;
   bool _music = true;
@@ -379,7 +380,15 @@ class _BreathingPageState extends State<BreathingPage>
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
-      setState(() => _remaining--);
+      setState(() {
+        _remaining--;
+        _sessionRemaining--;
+      });
+      if (_sessionRemaining <= 0) {
+        t.cancel();
+        unawaited(_finish());
+        return;
+      }
       if (_remaining <= 0) {
         t.cancel();
         _nextPhase();
@@ -394,15 +403,12 @@ class _BreathingPageState extends State<BreathingPage>
       next = 0;
       cycle++;
     }
-    if (cycle >= _totalCycles) {
-      _finish();
-      return;
-    }
     _cycle = cycle;
     _startPhase(next);
   }
 
   Future<void> _finish() async {
+    if (_done) return;
     _timer?.cancel();
     setState(() => _done = true);
     if (!mounted) return;
@@ -536,7 +542,7 @@ class _BreathingPageState extends State<BreathingPage>
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Cycle ${_done ? _totalCycles : _cycle + 1} / $_totalCycles',
+                        '${(_sessionRemaining ~/ 60).toString()}:${(_sessionRemaining % 60).toString().padLeft(2, '0')} remaining  ·  Cycle ${_cycle + 1}',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.black.withValues(alpha: 0.4),

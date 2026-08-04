@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../data/app_state_store.dart';
 import '../data/auth_service.dart';
 import 'sub_page.dart';
@@ -18,7 +19,9 @@ class MyPage extends StatefulWidget {
 class _MyPageState extends State<MyPage> {
   // 资料暂为设计稿占位，待账户模块接入后替换为真实 profile。
   static const _name = 'Maddy';
-  static const _signature = 'happy &  Sunny';
+  static const _defaultSignature = 'happy & Sunny';
+  static const _signatureKey = 'profile_signature';
+  String _signature = _defaultSignature;
 
   static const _menu = ['Privacy', 'Notifications', 'Setting'];
   bool _subscribed = false;
@@ -27,6 +30,52 @@ class _MyPageState extends State<MyPage> {
   void initState() {
     super.initState();
     _loadSubscription();
+    _loadSignature();
+  }
+
+  Future<void> _loadSignature() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_signatureKey)?.trim();
+    if (mounted && saved != null && saved.isNotEmpty) {
+      setState(() => _signature = saved);
+    }
+  }
+
+  Future<void> _editSignature() async {
+    var draft = _signature;
+    final value = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit signature'),
+        content: TextFormField(
+          key: const ValueKey('signature-field'),
+          initialValue: _signature,
+          autofocus: true,
+          maxLength: 36,
+          onChanged: (value) => draft = value,
+          decoration: const InputDecoration(
+            hintText: 'Write a short signature',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final text = draft.trim();
+              if (text.isNotEmpty) Navigator.pop(dialogContext, text);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (value == null || !mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_signatureKey, value);
+    if (mounted) setState(() => _signature = value);
   }
 
   Future<void> _loadSubscription() async {
@@ -148,12 +197,30 @@ class _MyPageState extends State<MyPage> {
           top: 237,
           width: 393,
           child: Center(
-            child: Text(
-              _signature,
-              style: TextStyle(
-                fontSize: 15,
-                color: Colors.black.withValues(alpha: 0.5),
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _signature,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.black.withValues(alpha: 0.5),
+                  ),
+                ),
+                const SizedBox(width: 5),
+                GestureDetector(
+                  key: const ValueKey('edit-signature'),
+                  onTap: _editSignature,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.edit_outlined,
+                      size: 16,
+                      color: Color(0xFFC640A3),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -235,25 +302,13 @@ class _MyPageState extends State<MyPage> {
   /// 账户行：显示登录状态，匿名时点了绑定 Google。
   Widget _accountRow(BuildContext context) {
     final bound = AuthService.isBound;
-    final anon = AuthService.isAnonymous;
     final label = bound ? 'Account' : 'Sign in with Google';
-    final trailing = bound
-        ? (AuthService.email ?? 'Signed in')
-        : (anon ? 'Connect' : 'Offline');
+    final trailing = bound ? (AuthService.email ?? 'Signed in') : 'Connect';
     return SizedBox(
       height: 46.74,
       child: InkWell(
         onTap: () async {
           if (bound) return;
-          if (!anon) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Cloud not connected — working offline.'),
-                duration: Duration(seconds: 2),
-              ),
-            );
-            return;
-          }
           try {
             await AuthService.linkGoogle(); // Web 会整页跳转到 Google
           } catch (e) {

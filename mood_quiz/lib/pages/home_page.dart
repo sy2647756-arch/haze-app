@@ -122,7 +122,7 @@ class HomePageState extends State<HomePage> {
         // + 按钮
         Positioned(
           left: 307,
-          top: 66,
+          top: 405,
           child: GestureDetector(
             onTap: () => _openWrite(DateTime.now(), existing: _today),
             child: Container(
@@ -266,7 +266,7 @@ class HomePageState extends State<HomePage> {
           slot: 0,
           left: 19,
           diary: _yesterday,
-          fallbackWeather: Weather.hazy,
+          date: DateTime.now().subtract(const Duration(days: 1)),
           accent: const Color(0xFF8B7EE5),
           detailAccent: const Color(0xFFB2AAEC),
           bg: const Color(0xFFECE9FB),
@@ -275,7 +275,7 @@ class HomePageState extends State<HomePage> {
           slot: 1,
           left: 205,
           diary: _dayBeforeYesterday,
-          fallbackWeather: Weather.breezy,
+          date: DateTime.now().subtract(const Duration(days: 2)),
           accent: const Color(0xFF66B550),
           detailAccent: const Color(0xFF99CE8D),
           bg: const Color(0xFFE8F5E4),
@@ -411,94 +411,116 @@ class HomePageState extends State<HomePage> {
     required int slot,
     required double left,
     required Diary? diary,
-    required Weather fallbackWeather,
+    required DateTime date,
     required Color accent,
     required Color detailAccent,
     required Color bg,
   }) {
-    final w = diary?.weather ?? fallbackWeather;
-    final dateStr = diary != null
-        ? DateFormat('yyyy.MM.dd').format(diary.date)
-        : DateFormat(
-            'yyyy.MM.dd',
-          ).format(DateTime.now().subtract(Duration(days: slot + 1)));
+    final w = diary?.weather;
+    final dateStr = DateFormat('yyyy.MM.dd').format(diary?.date ?? date);
     return Positioned(
       left: left,
-      top: 614,
+      top: 478,
       width: 173,
-      height: 113,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          clipBehavior: Clip.hardEdge,
-          children: [
-            // 卡片底
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: bg.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
+      height: 246,
+      child: GestureDetector(
+        key: ValueKey('home-history-$slot'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _openWrite(diary?.date ?? date, existing: diary),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              // 卡片底
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: bg.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            // 天气图标（右上）
-            Positioned(
-              right: 8,
-              top: 2,
-              width: 58,
-              height: 50,
-              child: Image.asset(
-                w.glyphAsset,
-                fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => Center(
-                  child: Text(w.emoji, style: const TextStyle(fontSize: 32)),
-                ),
+              // 天气图标（右上）
+              Positioned(
+                left: 7,
+                top: 4,
+                width: 159,
+                height: 159,
+                child: w == null
+                    ? Icon(
+                        Icons.cloud_outlined,
+                        size: 72,
+                        color: accent.withValues(alpha: 0.38),
+                      )
+                    : Image.asset(
+                        w.glyphAsset,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => Center(
+                          child: Text(
+                            w.emoji,
+                            style: const TextStyle(fontSize: 70),
+                          ),
+                        ),
+                      ),
               ),
-            ),
-            // 天气名
-            Positioned(
-              left: 19,
-              top: 13,
-              child: Text(
-                w.label,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: accent,
-                ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 92,
+                child: ColoredBox(color: Colors.white.withValues(alpha: 0.5)),
               ),
-            ),
-            // 日期
-            Positioned(
-              left: 19,
-              top: 43,
-              child: Text(
-                dateStr,
-                style: TextStyle(fontSize: 14, color: accent),
-              ),
-            ),
-            // Detail
-            Positioned(
-              right: 14,
-              bottom: 10,
-              child: GestureDetector(
-                onTap: diary == null
-                    ? null
-                    : () => _openWrite(diary.date, existing: diary),
+              // 天气名
+              Positioned(
+                left: 15,
+                top: 168,
+                right: 12,
                 child: Text(
-                  'Detail',
-                  style: TextStyle(fontSize: 14, color: detailAccent),
+                  w?.label ?? 'No record',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: w == null ? Colors.black45 : accent,
+                  ),
                 ),
               ),
-            ),
-          ],
+              // 日期
+              Positioned(
+                left: 15,
+                top: 198,
+                child: Text(
+                  dateStr,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: w == null ? Colors.black38 : accent,
+                  ),
+                ),
+              ),
+              // Detail
+              Positioned(
+                right: 12,
+                bottom: 12,
+                child: Text(
+                  w == null ? 'Record now' : 'Detail',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: w == null ? FontWeight.w600 : FontWeight.w400,
+                    color: w == null ? const Color(0xFFC640A3) : detailAccent,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

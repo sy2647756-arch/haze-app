@@ -40,8 +40,9 @@ void main() {
     expect(find.text('Type here'), findsOneWidget);
   });
 
-  testWidgets('sending a message appends user bubble and AI reply',
-      (tester) async {
+  testWidgets('sending a message appends user bubble and AI reply', (
+    tester,
+  ) async {
     await _pumpPage(tester, service: _FakeKimi('Take a deep breath.'));
 
     await tester.enterText(find.byType(TextField), 'I feel anxious');
@@ -70,8 +71,9 @@ void main() {
     expect(find.text('I hear you.'), findsOneWidget);
   });
 
-  testWidgets('clear conversation wipes history back to greeting',
-      (tester) async {
+  testWidgets('clear conversation wipes history back to greeting', (
+    tester,
+  ) async {
     await _pumpPage(tester, service: _FakeKimi('reply'));
     await tester.enterText(find.byType(TextField), 'something');
     await tester.testTextInput.receiveAction(TextInputAction.send);
@@ -89,8 +91,9 @@ void main() {
     expect(find.textContaining("I'm here"), findsOneWidget);
   });
 
-  testWidgets('renders a friendly error bubble when Kimi fails',
-      (tester) async {
+  testWidgets('keeps the message and offers Retry when Kimi fails', (
+    tester,
+  ) async {
     await _pumpPage(tester, service: _ThrowingKimi());
 
     await tester.enterText(find.byType(TextField), 'hello');
@@ -99,5 +102,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.textContaining("isn't connected yet"), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+    expect(find.text('hello'), findsOneWidget);
   });
 }

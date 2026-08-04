@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../services/kimi_service.dart';
@@ -222,11 +224,7 @@ class CounselingPage extends StatelessWidget {
 /// Counseling 对话页（Figma 27:1414）。UI-only：预置一段示例对话，
 /// 输入框本地回显（不接大模型）。左侧头像为咨询师照片，右侧为星星。
 class CounselingChatPage extends StatefulWidget {
-  const CounselingChatPage({
-    super.key,
-    required this.therapist,
-    this.service,
-  });
+  const CounselingChatPage({super.key, required this.therapist, this.service});
   final Therapist therapist;
   final KimiService? service;
 
@@ -271,9 +269,43 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
       });
     } on KimiException catch (error) {
       if (!mounted) return;
-      setState(() {
-        _messages.add(ChatMessage(fromUser: false, text: error.message));
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          duration: const Duration(seconds: 7),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () => unawaited(_retryLastMessage()),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _replying = false);
+        _scrollToBottom();
+      }
+    }
+  }
+
+  Future<void> _retryLastMessage() async {
+    if (_replying || _messages.isEmpty || !_messages.last.fromUser) return;
+    setState(() => _replying = true);
+    _scrollToBottom();
+    try {
+      final history = _messages.length > 20
+          ? _messages.sublist(_messages.length - 20)
+          : _messages;
+      final answer = await _ai.replyAsCounselor(
+        history,
+        therapistName: widget.therapist.name,
+      );
+      if (!mounted) return;
+      setState(() => _messages.add(ChatMessage(fromUser: false, text: answer)));
+    } on KimiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) {
         setState(() => _replying = false);
@@ -373,8 +405,7 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
                           ),
                         ),
                       ),
-                    for (final m in _messages)
-                      _bubble(m.fromUser, m.text),
+                    for (final m in _messages) _bubble(m.fromUser, m.text),
                     if (_replying) _bubble(false, 'Typing...'),
                   ],
                 ),

@@ -71,7 +71,10 @@ void main() {
     // 未选择今日心情 → 显示 Great
     expect(find.text("Today's Mood: Not recorded"), findsOneWidget);
     expect(find.text('Start your first mood record'), findsOneWidget);
-    expect(find.byIcon(Icons.cloud_outlined), findsOneWidget);
+    expect(find.text('No record'), findsNWidgets(2));
+    expect(find.text('Record now'), findsNWidgets(2));
+    expect(find.text('Hazy'), findsNothing);
+    expect(find.text('Breezy'), findsNothing);
 
     // 写入今天，reload 后反映当日心情
     await repo.upsert(

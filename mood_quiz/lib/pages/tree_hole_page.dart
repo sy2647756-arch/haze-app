@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -143,9 +144,41 @@ class _TreeHolePageState extends State<TreeHolePage> {
       setState(() => _messages.add(ChatMessage(fromUser: false, text: answer)));
     } on KimiException catch (e) {
       if (!mounted) return;
-      setState(
-        () => _messages.add(ChatMessage(fromUser: false, text: e.message)),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          duration: const Duration(seconds: 7),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () => unawaited(_retryLastMessage()),
+          ),
+        ),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _waiting = false);
+        TreeHoleStore.save(_messages);
+        _scrollToBottom();
+      }
+    }
+  }
+
+  Future<void> _retryLastMessage() async {
+    if (_waiting || _messages.isEmpty || !_messages.last.fromUser) return;
+    setState(() => _waiting = true);
+    _scrollToBottom();
+    try {
+      final history = _messages.length > _kContextWindow
+          ? _messages.sublist(_messages.length - _kContextWindow)
+          : _messages;
+      final answer = await _kimi.reply(history);
+      if (!mounted) return;
+      setState(() => _messages.add(ChatMessage(fromUser: false, text: answer)));
+    } on KimiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) {
         setState(() => _waiting = false);
