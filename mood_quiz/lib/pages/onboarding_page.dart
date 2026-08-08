@@ -16,9 +16,9 @@ class OnboardingGate extends StatefulWidget {
 }
 
 class _OnboardingGateState extends State<OnboardingGate> {
-  // v3 restores the complete splash, introduction, and profile flow once for
-  // people whose browser previously marked the incomplete v2 flow as done.
-  static const _key = 'haze_onboarding_complete_v3';
+  // v4 restores the complete introduction and profile flow once for people
+  // whose browser previously marked an incomplete onboarding flow as done.
+  static const _key = 'haze_onboarding_complete_v4';
   bool? _complete;
 
   @override
@@ -39,8 +39,31 @@ class _OnboardingGateState extends State<OnboardingGate> {
   @override
   Widget build(BuildContext context) {
     if (_complete == null) return const ColoredBox(color: Colors.white);
-    if (_complete!) return widget.child;
+    if (_complete!) return _ReturningSplash(child: widget.child);
     return OnboardingFlow(onFinished: _finish);
+  }
+}
+
+class _ReturningSplash extends StatefulWidget {
+  const _ReturningSplash({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_ReturningSplash> createState() => _ReturningSplashState();
+}
+
+class _ReturningSplashState extends State<_ReturningSplash> {
+  bool _finished = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_finished) return widget.child;
+    return _SplashVideoPage(
+      onFinished: () {
+        if (mounted) setState(() => _finished = true);
+      },
+    );
   }
 }
 
