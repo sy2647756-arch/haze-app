@@ -31,6 +31,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(CounselingChatPage), findsOneWidget);
     expect(find.textContaining('Start by sharing'), findsOneWidget);
+    expect(find.textContaining('AI-generated content'), findsOneWidget);
   });
 
   testWidgets('therapist responds only after the user sends a message', (

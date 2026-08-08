@@ -36,6 +36,7 @@ void main() {
     await _pumpPage(tester, service: _FakeKimi('ok'));
 
     expect(find.text('AI Tree Hole & Templates'), findsOneWidget);
+    expect(find.textContaining('AI-generated content'), findsOneWidget);
     expect(find.textContaining("I'm here"), findsOneWidget);
     expect(find.text('Type here'), findsOneWidget);
   });

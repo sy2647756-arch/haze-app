@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mood_quiz/pages/onboarding_page.dart';
@@ -20,14 +21,16 @@ void main() {
     expect(find.text('Haze home'), findsNothing);
   });
 
-  testWidgets('birthday remains a manual date input', (tester) async {
+  testWidgets('birthday opens a wheel date picker', (tester) async {
     await tester.pumpWidget(
       MaterialApp(home: OnboardingFlow(onFinished: () {}, initialPhase: 3)),
     );
 
     final birthday = find.byKey(const Key('onboarding-birthday-input'));
     expect(birthday, findsOneWidget);
-    await tester.enterText(birthday, '08 08 2000');
-    expect(find.text('08 08 2000'), findsOneWidget);
+    await tester.tap(birthday);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('birthday-wheel')), findsOneWidget);
+    expect(find.byType(CupertinoDatePicker), findsOneWidget);
   });
 }

@@ -49,10 +49,13 @@ class KimiService {
     required String mode,
     String? therapistName,
   }) async {
-    final messages = history.map((message) => message.toApi()).toList();
+    final compactHistory = history.length > 12
+        ? history.sublist(history.length - 12)
+        : history;
+    final messages = compactHistory.map((message) => message.toApi()).toList();
     Object? lastError;
 
-    for (var attempt = 0; attempt < 3; attempt++) {
+    for (var attempt = 0; attempt < 2; attempt++) {
       try {
         final response = await Supabase.instance.client.functions
             .invoke(
@@ -63,7 +66,7 @@ class KimiService {
                 'messages': messages,
               },
             )
-            .timeout(const Duration(seconds: 45));
+            .timeout(Duration(seconds: attempt == 0 ? 18 : 14));
 
         if (response.status == 200) {
           final data = response.data;
@@ -82,8 +85,8 @@ class KimiService {
         lastError = error;
       }
 
-      if (attempt < 2) {
-        await Future<void>.delayed(Duration(milliseconds: 650 * (attempt + 1)));
+      if (attempt == 0) {
+        await Future<void>.delayed(const Duration(milliseconds: 300));
       }
     }
 

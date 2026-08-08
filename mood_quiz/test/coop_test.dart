@@ -107,5 +107,7 @@ void main() {
 
     expect(find.textContaining('Waiting for your partner'), findsOneWidget);
     expect(find.text('Invite your partner'), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget);
+    expect(find.text('View Comparison'), findsNothing);
   });
 }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -63,6 +64,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   bool _locating = false;
   bool _showFallbackMap = true;
   String? _locationNotice;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -78,8 +80,81 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() {});
+    _searchDebounce?.cancel();
+    final query = value.trim();
+    if (query.length < 3 || !widget.enableLiveLocation) return;
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 450),
+      () => _searchPlaces(query),
+    );
+  }
+
+  Future<void> _searchPlaces(String query) async {
+    if (mounted) setState(() => _locating = true);
+    try {
+      final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
+        'q': query,
+        'format': 'jsonv2',
+        'addressdetails': '1',
+        'limit': '10',
+      });
+      final response = await http
+          .get(
+            uri,
+            headers: const {
+              'Accept': 'application/json',
+              'User-Agent': 'HazeMoodCompanion/1.0',
+            },
+          )
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode != 200) return;
+      final decoded = jsonDecode(response.body) as List<dynamic>;
+      final found = <_NearbyPlace>[];
+      for (final raw in decoded) {
+        final item = Map<String, dynamic>.from(raw as Map);
+        final lat = double.tryParse('${item['lat']}');
+        final lon = double.tryParse('${item['lon']}');
+        if (lat == null || lon == null) continue;
+        final displayName = '${item['display_name'] ?? ''}'.trim();
+        final name = '${item['name'] ?? ''}'.trim();
+        found.add(
+          _NearbyPlace(
+            name: name.isEmpty ? displayName.split(',').first : name,
+            address: displayName,
+            distance: 0,
+            point: LatLng(lat, lon),
+          ),
+        );
+      }
+      if (!mounted || _searchController.text.trim() != query || found.isEmpty) {
+        return;
+      }
+      setState(() {
+        _places = found;
+        _selected = found.first;
+        _center = found.first.point;
+        _showFallbackMap = false;
+        _locationNotice = null;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _mapController.move(_center, 14.5);
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _locationNotice = 'Search is temporarily unavailable. Try again.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
   }
 
   Future<void> _loadNearby() async {
@@ -219,6 +294,7 @@ out center 30;
       body: SafeArea(
         child: Column(
           children: [
+            const SizedBox(height: 42),
             SizedBox(
               width: double.infinity,
               height: 54,
@@ -270,7 +346,7 @@ out center 30;
               child: TextField(
                 key: const Key('location-search'),
                 controller: _searchController,
-                onChanged: (_) => setState(() {}),
+                onChanged: _onSearchChanged,
                 decoration: InputDecoration(
                   isDense: true,
                   hintText: 'Search',
@@ -285,7 +361,7 @@ out center 30;
               ),
             ),
             SizedBox(
-              height: 236,
+              height: 212,
               child: Stack(
                 children: [
                   if (_showFallbackMap)
@@ -302,6 +378,25 @@ out center 30;
                       options: MapOptions(
                         initialCenter: _center,
                         initialZoom: 15.5,
+                        onTap: (_, point) {
+                          final pinned = _NearbyPlace(
+                            name: 'Pinned location',
+                            address:
+                                '${point.latitude.toStringAsFixed(5)}, '
+                                '${point.longitude.toStringAsFixed(5)}',
+                            distance: 0,
+                            point: point,
+                          );
+                          setState(() {
+                            _selected = pinned;
+                            _places = [
+                              pinned,
+                              ..._places.where(
+                                (place) => place.name != 'Pinned location',
+                              ),
+                            ];
+                          });
+                        },
                       ),
                       children: [
                         TileLayer(

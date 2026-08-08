@@ -16,6 +16,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('My Location'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('My Location')).dy, greaterThan(45));
     expect(find.text('Papa John’s'), findsOneWidget);
     expect(find.byIcon(Icons.check), findsOneWidget);
 

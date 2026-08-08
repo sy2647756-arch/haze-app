@@ -62,7 +62,7 @@ const _greeting =
     "you can let it out. What happened?";
 
 /// 每次调用 Kimi 时，最多回带多少条历史（控制 token / 上下文长度）。
-const _kContextWindow = 20;
+const _kContextWindow = 12;
 
 class _TreeHolePageState extends State<TreeHolePage> {
   late final KimiService _kimi = widget.service ?? KimiService();
@@ -147,7 +147,9 @@ class _TreeHolePageState extends State<TreeHolePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.message),
-          duration: const Duration(seconds: 7),
+          duration: const Duration(seconds: 5),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 78),
           action: SnackBarAction(
             label: 'Retry',
             onPressed: () => unawaited(_retryLastMessage()),
@@ -176,9 +178,13 @@ class _TreeHolePageState extends State<TreeHolePage> {
       setState(() => _messages.add(ChatMessage(fromUser: false, text: answer)));
     } on KimiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 78),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _waiting = false);
@@ -312,6 +318,16 @@ class _TreeHolePageState extends State<TreeHolePage> {
               ),
             ),
           ),
+          const Positioned(
+            left: 48,
+            right: 48,
+            top: 104,
+            child: Text(
+              'AI-generated content is for reference only, not professional advice.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 10.5, color: Colors.white70),
+            ),
+          ),
           // 清空会话（自设计：Figma 无此按钮，放在标题左侧）
           Positioned(
             left: 18,
@@ -346,7 +362,7 @@ class _TreeHolePageState extends State<TreeHolePage> {
           // 消息列表
           Positioned(
             left: 0,
-            top: 110,
+            top: 128,
             right: 0,
             bottom: 90,
             child: ScrollConfiguration(

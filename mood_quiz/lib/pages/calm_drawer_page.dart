@@ -10,10 +10,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 class _MouseDragScrollBehavior extends MaterialScrollBehavior {
   @override
   Set<PointerDeviceKind> get dragDevices => {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.trackpad,
-      };
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+  };
 }
 
 /// 12h Calm Drawer 子功能（Figma 119:2490 系列）。
@@ -22,7 +22,11 @@ class _MouseDragScrollBehavior extends MaterialScrollBehavior {
 // ============ 数据模型 + 本地存储 ============
 
 class CalmEntry {
-  CalmEntry({required this.content, required this.lockedAt, required this.lockUntil});
+  CalmEntry({
+    required this.content,
+    required this.lockedAt,
+    required this.lockUntil,
+  });
   final String content;
   final DateTime lockedAt;
   final DateTime lockUntil;
@@ -34,15 +38,15 @@ class CalmEntry {
   }
 
   Map<String, dynamic> toJson() => {
-        'content': content,
-        'lockedAt': lockedAt.toIso8601String(),
-        'lockUntil': lockUntil.toIso8601String(),
-      };
+    'content': content,
+    'lockedAt': lockedAt.toIso8601String(),
+    'lockUntil': lockUntil.toIso8601String(),
+  };
   factory CalmEntry.fromJson(Map<String, dynamic> j) => CalmEntry(
-        content: j['content'] as String,
-        lockedAt: DateTime.parse(j['lockedAt'] as String),
-        lockUntil: DateTime.parse(j['lockUntil'] as String),
-      );
+    content: j['content'] as String,
+    lockedAt: DateTime.parse(j['lockedAt'] as String),
+    lockUntil: DateTime.parse(j['lockUntil'] as String),
+  );
 }
 
 class CalmRepo {
@@ -86,24 +90,37 @@ const _accent = Color(0xFF8E95FD);
 const _yellow = Color(0xFFFCF9A8);
 
 Widget _starryBg() => Positioned.fill(
-      child: Image.asset('assets/calm/bg.png',
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF20223F))),
-    );
+  child: Image.asset(
+    'assets/calm/bg.png',
+    fit: BoxFit.cover,
+    errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF20223F)),
+  ),
+);
 
-Widget _pillButton(String text, VoidCallback onTap,
-    {double width = 294, Color color = _accent}) {
+Widget _pillButton(
+  String text,
+  VoidCallback onTap, {
+  double width = 294,
+  Color color = _accent,
+}) {
   return GestureDetector(
     onTap: onTap,
     child: Container(
       width: width,
       height: 52,
       alignment: Alignment.center,
-      decoration:
-          BoxDecoration(color: color, borderRadius: BorderRadius.circular(23.5)),
-      child: Text(text,
-          style: const TextStyle(
-              fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white)),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(23.5),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
     ),
   );
 }
@@ -177,9 +194,11 @@ class _WriteScreenState extends State<_WriteScreen> {
 
   Future<void> _next() async {
     if (_ctrl.text.trim().isEmpty) return;
-    final locked = await Navigator.of(context).push<bool>(MaterialPageRoute(
-      builder: (_) => _SetLockScreen(content: _ctrl.text.trim()),
-    ));
+    final locked = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => _SetLockScreen(content: _ctrl.text.trim()),
+      ),
+    );
     if (locked == true) widget.onLocked();
   }
 
@@ -203,11 +222,14 @@ class _WriteScreenState extends State<_WriteScreen> {
             top: 69,
             width: 393,
             child: Center(
-              child: Text('12h Calm Drawer',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
+              child: Text(
+                '12h Calm Drawer',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
           // 锁图标（小）
@@ -216,23 +238,28 @@ class _WriteScreenState extends State<_WriteScreen> {
             top: 120,
             width: 393,
             child: Center(
-              child: Image.asset('assets/calm/lock.png',
-                  height: 80,
-                  errorBuilder: (_, _, _) =>
-                      const Icon(Icons.lock, size: 60, color: _yellow)),
+              child: Image.asset(
+                'assets/calm/lock.png',
+                height: 80,
+                errorBuilder: (_, _, _) =>
+                    const Icon(Icons.lock, size: 60, color: _yellow),
+              ),
             ),
           ),
           const Positioned(
             left: 40,
             top: 210,
             width: 313,
-            child: Text('Let time hold your emotions\nfor the moment.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 20,
-                    height: 1.35,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white)),
+            child: Text(
+              'Let time hold your emotions\nfor the moment.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                height: 1.35,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
           ),
           // 输入框（磨砂卡）
           Positioned(
@@ -257,8 +284,10 @@ class _WriteScreenState extends State<_WriteScreen> {
                   isCollapsed: true,
                   border: InputBorder.none,
                   hintText: 'What do you want to say, right now?',
-                  hintStyle:
-                      TextStyle(fontSize: 15, color: Colors.white.withValues(alpha: 0.6)),
+                  hintStyle: TextStyle(
+                    fontSize: 15,
+                    color: Colors.white.withValues(alpha: 0.6),
+                  ),
                 ),
               ),
             ),
@@ -303,9 +332,9 @@ class _SetLockScreenState extends State<_SetLockScreen> {
     await CalmRepo.setCurrent(entry);
     if (!mounted) return;
     // 进入 Start Lock 展示页；Home 返回后一路 pop 回入口
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => _StartLockScreen(entry: entry),
-    ));
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => _StartLockScreen(entry: entry)));
     if (mounted) Navigator.of(context).pop(true);
   }
 
@@ -323,11 +352,14 @@ class _SetLockScreenState extends State<_SetLockScreen> {
           childDelegate: ListWheelChildBuilderDelegate(
             childCount: count,
             builder: (_, i) => Center(
-              child: Text(i.toString().padLeft(2, '0'),
-                  style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white.withValues(alpha: 0.9))),
+              child: Text(
+                i.toString().padLeft(2, '0'),
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
             ),
           ),
         ),
@@ -347,8 +379,11 @@ class _SetLockScreenState extends State<_SetLockScreen> {
             top: 70,
             child: GestureDetector(
               onTap: () => Navigator.of(context).maybePop(),
-              child: Icon(Icons.chevron_left,
-                  size: 28, color: Colors.white.withValues(alpha: 0.9)),
+              child: Icon(
+                Icons.chevron_left,
+                size: 28,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
             ),
           ),
           Positioned(
@@ -364,11 +399,14 @@ class _SetLockScreenState extends State<_SetLockScreen> {
             top: 130,
             width: 393,
             child: Center(
-              child: Text('Set Lock Duration',
-                  style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white)),
+              child: Text(
+                'Set Lock Duration',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -376,10 +414,13 @@ class _SetLockScreenState extends State<_SetLockScreen> {
             top: 168,
             width: 393,
             child: Center(
-              child: Text('When the timer expires, Star will alert you',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.8))),
+              child: Text(
+                'When the timer expires, Star will alert you',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.8),
+                ),
+              ),
             ),
           ),
           // 预设快捷（点选整点小时）
@@ -393,8 +434,10 @@ class _SetLockScreenState extends State<_SetLockScreen> {
                 children: [
                   for (final h in _presets)
                     GestureDetector(
-                      onTap: () =>
-                          setState(() { _hours = h; _minutes = 0; }),
+                      onTap: () => setState(() {
+                        _hours = h;
+                        _minutes = 0;
+                      }),
                       child: Container(
                         width: 62,
                         height: 62,
@@ -405,16 +448,20 @@ class _SetLockScreenState extends State<_SetLockScreen> {
                               ? _accent
                               : Colors.white.withValues(alpha: 0.15),
                           border: Border.all(
-                              color: (_hours == h && _minutes == 0)
-                                  ? _yellow
-                                  : Colors.white.withValues(alpha: 0.3),
-                              width: 2),
+                            color: (_hours == h && _minutes == 0)
+                                ? _yellow
+                                : Colors.white.withValues(alpha: 0.3),
+                            width: 2,
+                          ),
                         ),
-                        child: Text('${h}h',
-                            style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white)),
+                        child: Text(
+                          '${h}h',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
                 ],
@@ -427,9 +474,13 @@ class _SetLockScreenState extends State<_SetLockScreen> {
             top: 350,
             width: 393,
             child: Center(
-              child: Text('Or set it manually',
-                  style: TextStyle(
-                      fontSize: 13, color: Colors.white.withValues(alpha: 0.6))),
+              child: Text(
+                'Or set it manually',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.white.withValues(alpha: 0.6),
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -443,11 +494,14 @@ class _SetLockScreenState extends State<_SetLockScreen> {
                   _wheel(24, _hours, (v) => setState(() => _hours = v)),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Text(':',
-                        style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white)),
+                    child: Text(
+                      ':',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                   _wheel(60, _minutes, (v) => setState(() => _minutes = v)),
                 ],
@@ -461,11 +515,13 @@ class _SetLockScreenState extends State<_SetLockScreen> {
             width: 393,
             child: Center(
               child: Text(
-                  '${_hours}h ${_minutes.toString().padLeft(2, '0')}m',
-                  style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: _yellow)),
+                '${_hours}h ${_minutes.toString().padLeft(2, '0')}m',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: _yellow,
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -473,7 +529,8 @@ class _SetLockScreenState extends State<_SetLockScreen> {
             bottom: 60,
             width: 393,
             child: Center(
-                child: _pillButton('Start Lock', _startLock, width: 348)),
+              child: _pillButton('Start Lock', _startLock, width: 348),
+            ),
           ),
         ],
       ),
@@ -528,11 +585,14 @@ class _StartLockScreenState extends State<_StartLockScreen> {
             top: 138,
             width: 393,
             child: Center(
-              child: Text('Start Lock',
-                  style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white)),
+              child: Text(
+                'Start Lock',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -540,10 +600,13 @@ class _StartLockScreenState extends State<_StartLockScreen> {
             top: 171,
             width: 393,
             child: Center(
-              child: Text('Your content is safely stored.',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.9))),
+              child: Text(
+                'Your content is safely stored.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -551,10 +614,12 @@ class _StartLockScreenState extends State<_StartLockScreen> {
             top: 230,
             width: 393,
             child: Center(
-              child: Image.asset('assets/calm/lock.png',
-                  height: 195,
-                  errorBuilder: (_, _, _) =>
-                      const Icon(Icons.lock, size: 140, color: _yellow)),
+              child: Image.asset(
+                'assets/calm/lock.png',
+                height: 195,
+                errorBuilder: (_, _, _) =>
+                    const Icon(Icons.lock, size: 140, color: _yellow),
+              ),
             ),
           ),
           Positioned(
@@ -562,9 +627,13 @@ class _StartLockScreenState extends State<_StartLockScreen> {
             top: 455,
             width: 393,
             child: Center(
-              child: Text('Time Remaining',
-                  style: TextStyle(
-                      fontSize: 15, color: Colors.white.withValues(alpha: 0.9))),
+              child: Text(
+                'Time Remaining',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -572,11 +641,14 @@ class _StartLockScreenState extends State<_StartLockScreen> {
             top: 505,
             width: 393,
             child: Center(
-              child: Text(_hms(widget.entry.remaining),
-                  style: const TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.w600,
-                      color: _yellow)),
+              child: Text(
+                _hms(widget.entry.remaining),
+                style: const TextStyle(
+                  fontSize: 48,
+                  fontWeight: FontWeight.w600,
+                  color: _yellow,
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -585,8 +657,10 @@ class _StartLockScreenState extends State<_StartLockScreen> {
             width: 393,
             child: Center(
               child: _pillButton(
-                  'Home', () => Navigator.of(context).maybePop(),
-                  width: 348),
+                'Home',
+                () => Navigator.of(context).maybePop(),
+                width: 348,
+              ),
             ),
           ),
         ],
@@ -628,19 +702,24 @@ class _CoolingDownScreenState extends State<_CoolingDownScreen> {
   }
 
   Future<void> _openContent() async {
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => _ThoughtsScreen(entry: widget.entry, onChanged: widget.onChanged),
-    ));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            _ThoughtsScreen(entry: widget.entry, onChanged: widget.onChanged),
+      ),
+    );
     widget.onChanged();
   }
 
   Future<void> _skip() async {
     // 提前结束冷却：解锁但保留内容（返回后仍能看到原文）
-    await CalmRepo.setCurrent(CalmEntry(
-      content: widget.entry.content,
-      lockedAt: widget.entry.lockedAt,
-      lockUntil: DateTime.now(),
-    ));
+    await CalmRepo.setCurrent(
+      CalmEntry(
+        content: widget.entry.content,
+        lockedAt: widget.entry.lockedAt,
+        lockUntil: DateTime.now(),
+      ),
+    );
     widget.onChanged();
   }
 
@@ -664,22 +743,28 @@ class _CoolingDownScreenState extends State<_CoolingDownScreen> {
             top: 69,
             width: 393,
             child: Center(
-              child: Text('12h Calm Drawer',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
+              child: Text(
+                '12h Calm Drawer',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
           const Positioned(
             left: 26,
             top: 118,
             width: 280,
-            child: Text("I'll keep this between us",
-                style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white)),
+            child: Text(
+              "I'll keep this between us",
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
           ),
           // Cooling Down 卡
           Positioned(
@@ -705,18 +790,24 @@ class _CoolingDownScreenState extends State<_CoolingDownScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 24),
-                  const Text('Cooling Down',
-                      style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white)),
+                  const Text(
+                    'Cooling Down',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
                   const SizedBox(height: 52),
                   Center(
-                    child: Text(_hms(widget.entry.remaining),
-                        style: const TextStyle(
-                            fontSize: 46,
-                            fontWeight: FontWeight.w600,
-                            color: _yellow)),
+                    child: Text(
+                      _hms(widget.entry.remaining),
+                      style: const TextStyle(
+                        fontSize: 46,
+                        fontWeight: FontWeight.w600,
+                        color: _yellow,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 32),
                   Center(child: _pillButton('My Content', _openContent)),
@@ -724,10 +815,13 @@ class _CoolingDownScreenState extends State<_CoolingDownScreen> {
                   Center(
                     child: GestureDetector(
                       onTap: _skip,
-                      child: Text('Skip Cooldown',
-                          style: TextStyle(
-                              fontSize: 15,
-                              color: Colors.white.withValues(alpha: 0.5))),
+                      child: Text(
+                        'Skip Cooldown',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.white.withValues(alpha: 0.5),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -738,26 +832,51 @@ class _CoolingDownScreenState extends State<_CoolingDownScreen> {
           Positioned(
             left: 25,
             top: 573,
-            child: Container(
-              width: 343,
-              height: 122,
-              padding: const EdgeInsets.fromLTRB(30, 22, 20, 0),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(15),
+            child: GestureDetector(
+              key: const Key('open-calm-history'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const CalmHistoryPage()),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('History',
-                      style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white)),
-                  const SizedBox(height: 8),
-                  Text('${_history.length} Records',
-                      style: const TextStyle(fontSize: 15, color: Colors.white)),
-                ],
+              child: Container(
+                width: 343,
+                height: 122,
+                padding: const EdgeInsets.fromLTRB(30, 22, 20, 0),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'History',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${_history.length} Records',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 24),
+                      child: Icon(Icons.chevron_right, color: Colors.white),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -769,9 +888,210 @@ class _CoolingDownScreenState extends State<_CoolingDownScreen> {
 
 // ============ ⑤ 查看想法（Cancel / Edit / Copy） ============
 
+class CalmHistoryPage extends StatefulWidget {
+  const CalmHistoryPage({super.key});
+
+  @override
+  State<CalmHistoryPage> createState() => _CalmHistoryPageState();
+}
+
+class _CalmHistoryPageState extends State<CalmHistoryPage> {
+  List<CalmEntry>? _entries;
+
+  @override
+  void initState() {
+    super.initState();
+    CalmRepo.history().then((value) {
+      if (mounted) setState(() => _entries = value);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = _entries;
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          _starryBg(),
+          Positioned(
+            left: 18,
+            top: 68,
+            child: IconButton(
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.chevron_left, color: Colors.white),
+            ),
+          ),
+          const Positioned(
+            left: 0,
+            right: 0,
+            top: 75,
+            child: Text(
+              'Calm Drawer History',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 24,
+            right: 24,
+            top: 126,
+            bottom: 24,
+            child: entries == null
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  )
+                : entries.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No archived thoughts yet.',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: EdgeInsets.zero,
+                    itemCount: entries.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemBuilder: (_, index) {
+                      final entry = entries[index];
+                      return InkWell(
+                        key: Key('calm-history-$index'),
+                        borderRadius: BorderRadius.circular(15),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => CalmHistoryDetailPage(entry: entry),
+                          ),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.82),
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                DateFormat(
+                                  'dd MMM yyyy · HH:mm',
+                                ).format(entry.lockedAt),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF555A91),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                entry.content,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  height: 1.4,
+                                  color: Color(0xFF353535),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CalmHistoryDetailPage extends StatelessWidget {
+  const CalmHistoryDetailPage({super.key, required this.entry});
+  final CalmEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          _starryBg(),
+          Positioned(
+            left: 18,
+            top: 68,
+            child: IconButton(
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.chevron_left, color: Colors.white),
+            ),
+          ),
+          const Positioned(
+            left: 0,
+            right: 0,
+            top: 75,
+            child: Text(
+              'History Detail',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 32,
+            right: 32,
+            top: 142,
+            bottom: 80,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.88),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    DateFormat('dd MMM yyyy · HH:mm').format(entry.lockedAt),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF666699),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Text(
+                        entry.content,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          height: 1.55,
+                          color: Color(0xFF333333),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ThoughtsScreen extends StatefulWidget {
-  const _ThoughtsScreen(
-      {required this.entry, required this.onChanged, this.unlocked = false});
+  const _ThoughtsScreen({
+    required this.entry,
+    required this.onChanged,
+    this.unlocked = false,
+  });
   final CalmEntry entry;
   final VoidCallback onChanged;
 
@@ -785,8 +1105,9 @@ class _ThoughtsScreen extends StatefulWidget {
 class _ThoughtsScreenState extends State<_ThoughtsScreen> {
   late String _content = widget.entry.content;
   bool _editing = false;
-  late final TextEditingController _ctrl =
-      TextEditingController(text: widget.entry.content);
+  late final TextEditingController _ctrl = TextEditingController(
+    text: widget.entry.content,
+  );
 
   Future<void> _save() async {
     final updated = CalmEntry(
@@ -818,8 +1139,11 @@ class _ThoughtsScreenState extends State<_ThoughtsScreen> {
             top: 70,
             child: GestureDetector(
               onTap: () => Navigator.of(context).maybePop(),
-              child: Icon(Icons.chevron_left,
-                  size: 28, color: Colors.white.withValues(alpha: 0.9)),
+              child: Icon(
+                Icons.chevron_left,
+                size: 28,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
             ),
           ),
           const Positioned(
@@ -827,11 +1151,14 @@ class _ThoughtsScreenState extends State<_ThoughtsScreen> {
             top: 69,
             width: 393,
             child: Center(
-              child: Text('Your Thoughts',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
+              child: Text(
+                'Your Thoughts',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -840,11 +1167,14 @@ class _ThoughtsScreenState extends State<_ThoughtsScreen> {
             width: 393,
             child: Center(
               child: Text(
-                  widget.unlocked
-                      ? 'Unlocked · this is what you set aside'
-                      : 'Safely stored',
-                  style: TextStyle(
-                      fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
+                widget.unlocked
+                    ? 'Unlocked · this is what you set aside'
+                    : 'Safely stored',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.8),
+                ),
+              ),
             ),
           ),
           // 内容卡
@@ -870,22 +1200,32 @@ class _ThoughtsScreenState extends State<_ThoughtsScreen> {
                             expands: true,
                             textAlignVertical: TextAlignVertical.top,
                             style: const TextStyle(
-                                fontSize: 15, color: Color(0xFF444444)),
+                              fontSize: 15,
+                              color: Color(0xFF444444),
+                            ),
                             decoration: const InputDecoration(
-                                isCollapsed: true, border: InputBorder.none),
+                              isCollapsed: true,
+                              border: InputBorder.none,
+                            ),
                           )
                         : SingleChildScrollView(
-                            child: Text(_content,
-                                style: const TextStyle(
-                                    fontSize: 15,
-                                    height: 1.5,
-                                    color: Color(0xFF444444))),
+                            child: Text(
+                              _content,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                height: 1.5,
+                                color: Color(0xFF444444),
+                              ),
+                            ),
                           ),
                   ),
-                  Text(lockedStr,
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: const Color(0xFF444444).withValues(alpha: 0.5))),
+                  Text(
+                    lockedStr,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: const Color(0xFF444444).withValues(alpha: 0.5),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -912,9 +1252,12 @@ class _ThoughtsScreenState extends State<_ThoughtsScreen> {
                   _smallPill('Copy', () async {
                     await Clipboard.setData(ClipboardData(text: _content));
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
                           content: Text('Copied'),
-                          duration: Duration(seconds: 1)));
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
                     }
                   }),
                 ],
@@ -935,11 +1278,14 @@ class _ThoughtsScreenState extends State<_ThoughtsScreen> {
                     if (context.mounted) Navigator.of(context).maybePop();
                     widget.onChanged();
                   },
-                  child: Text('Start a new drawer',
-                      style: TextStyle(
-                          fontSize: 13,
-                          decoration: TextDecoration.underline,
-                          color: Colors.white.withValues(alpha: 0.7))),
+                  child: Text(
+                    'Start a new drawer',
+                    style: TextStyle(
+                      fontSize: 13,
+                      decoration: TextDecoration.underline,
+                      color: Colors.white.withValues(alpha: 0.7),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -955,11 +1301,18 @@ class _ThoughtsScreenState extends State<_ThoughtsScreen> {
         width: 96,
         height: 44,
         alignment: Alignment.center,
-        decoration:
-            BoxDecoration(color: _accent, borderRadius: BorderRadius.circular(22)),
-        child: Text(text,
-            style: const TextStyle(
-                fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
+        decoration: BoxDecoration(
+          color: _accent,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
       ),
     );
   }

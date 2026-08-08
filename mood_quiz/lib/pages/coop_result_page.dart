@@ -244,6 +244,23 @@ class _CoopResultPageState extends State<CoopResultPage> {
                   const ColoredBox(color: Color(0xFFEDEAF6)),
             ),
           ),
+          // The source artwork has a white status-bar strip. Cover it with the
+          // same soft illustrated background so the header fills the top edge.
+          const Positioned(
+            left: 0,
+            top: 0,
+            width: 393,
+            height: 58,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFF5F3FF), Color(0xFFFFFBF4)],
+                ),
+              ),
+            ),
+          ),
           // 关闭热区（右上角 X）
           Positioned(
             left: 326,
@@ -294,9 +311,12 @@ class _CoopResultPageState extends State<CoopResultPage> {
                       color: _titleColor,
                     ),
                   ),
-                  const SizedBox(height: 26),
-                  _stars(),
-                  const SizedBox(height: 26),
+                  if (!_waiting) ...[
+                    const SizedBox(height: 26),
+                    _stars(),
+                    const SizedBox(height: 26),
+                  ] else
+                    const SizedBox(height: 22),
                   if (_waiting) ..._waitingBody() else ..._comparisonBody(),
                 ],
               ),

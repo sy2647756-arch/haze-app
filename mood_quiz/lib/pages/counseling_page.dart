@@ -256,8 +256,8 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
     });
     _scrollToBottom();
     try {
-      final history = _messages.length > 20
-          ? _messages.sublist(_messages.length - 20)
+      final history = _messages.length > 12
+          ? _messages.sublist(_messages.length - 12)
           : _messages;
       final answer = await _ai.replyAsCounselor(
         history,
@@ -272,7 +272,9 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error.message),
-          duration: const Duration(seconds: 7),
+          duration: const Duration(seconds: 5),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 78),
           action: SnackBarAction(
             label: 'Retry',
             onPressed: () => unawaited(_retryLastMessage()),
@@ -292,8 +294,8 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
     setState(() => _replying = true);
     _scrollToBottom();
     try {
-      final history = _messages.length > 20
-          ? _messages.sublist(_messages.length - 20)
+      final history = _messages.length > 12
+          ? _messages.sublist(_messages.length - 12)
           : _messages;
       final answer = await _ai.replyAsCounselor(
         history,
@@ -303,9 +305,13 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
       setState(() => _messages.add(ChatMessage(fromUser: false, text: answer)));
     } on KimiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 78),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _replying = false);
@@ -377,7 +383,7 @@ class _CounselingChatPageState extends State<CounselingChatPage> {
               width: 393,
               child: Center(
                 child: Text(
-                  'Consultation for reference only; follow your inner guidance.',
+                  'AI-generated content is for reference only, not professional advice.',
                   style: TextStyle(fontSize: 11, color: _magenta),
                 ),
               ),

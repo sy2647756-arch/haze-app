@@ -1,7 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import '../data/app_state_store.dart';
@@ -437,11 +437,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           'DD MM YYYY',
           _birthday,
           fieldKey: const Key('onboarding-birthday-input'),
-          keyboardType: TextInputType.datetime,
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[0-9 ./-]')),
-            LengthLimitingTextInputFormatter(10),
-          ],
+          readOnly: true,
+          onTap: _pickBirthday,
+          suffixIcon: Icons.calendar_month_outlined,
         ),
       ],
     );
@@ -454,7 +452,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     TextEditingController controller, {
     Key? fieldKey,
     TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters,
+    bool readOnly = false,
+    VoidCallback? onTap,
+    IconData suffixIcon = Icons.edit_outlined,
   }) {
     return Positioned(
       left: 25,
@@ -469,10 +469,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             key: fieldKey,
             controller: controller,
             keyboardType: keyboardType,
-            inputFormatters: inputFormatters,
+            readOnly: readOnly,
+            onTap: onTap,
             decoration: InputDecoration(
               hintText: hint,
-              suffixIcon: const Icon(Icons.edit_outlined, size: 18),
+              suffixIcon: Icon(suffixIcon, size: 18),
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -484,6 +485,62 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         ],
       ),
     );
+  }
+
+  Future<void> _pickBirthday() async {
+    final now = DateTime.now();
+    var selected =
+        DateTime.tryParse(_birthday.text.split(' ').reversed.join('-')) ??
+        DateTime(2000, 1, 1);
+    final picked = await showModalBottomSheet<DateTime>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetContext) => SizedBox(
+        key: const Key('birthday-wheel'),
+        height: 330,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 12, 4),
+              child: Row(
+                children: [
+                  const Text(
+                    'Select birthday',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => Navigator.pop(sheetContext, selected),
+                    child: const Text(
+                      'Done',
+                      style: TextStyle(color: _magenta),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.date,
+                dateOrder: DatePickerDateOrder.dmy,
+                initialDateTime: selected,
+                minimumDate: DateTime(1900, 1, 1),
+                maximumDate: now,
+                onDateTimeChanged: (value) => selected = value,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    _birthday.text =
+        '${picked.day.toString().padLeft(2, '0')} '
+        '${picked.month.toString().padLeft(2, '0')} '
+        '${picked.year}';
   }
 
   Widget _choiceQuestion(

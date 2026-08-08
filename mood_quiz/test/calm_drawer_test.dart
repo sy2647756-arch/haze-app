@@ -9,14 +9,18 @@ void main() {
   test('CalmEntry cooling/remaining logic', () {
     final now = DateTime.now();
     final e = CalmEntry(
-        content: 'x', lockedAt: now, lockUntil: now.add(const Duration(hours: 12)));
+      content: 'x',
+      lockedAt: now,
+      lockUntil: now.add(const Duration(hours: 12)),
+    );
     expect(e.isCooling, true);
     expect(e.remaining.inHours, inInclusiveRange(11, 12));
 
     final past = CalmEntry(
-        content: 'y',
-        lockedAt: now.subtract(const Duration(hours: 13)),
-        lockUntil: now.subtract(const Duration(hours: 1)));
+      content: 'y',
+      lockedAt: now.subtract(const Duration(hours: 13)),
+      lockUntil: now.subtract(const Duration(hours: 1)),
+    );
     expect(past.isCooling, false);
     expect(past.remaining, Duration.zero);
   });
@@ -24,9 +28,10 @@ void main() {
   test('CalmRepo persists current and archives history', () async {
     expect(await CalmRepo.current(), isNull);
     final e = CalmEntry(
-        content: 'hi',
-        lockedAt: DateTime(2026, 5, 20, 21, 41),
-        lockUntil: DateTime(2026, 5, 21, 9, 41));
+      content: 'hi',
+      lockedAt: DateTime(2026, 5, 20, 21, 41),
+      lockUntil: DateTime(2026, 5, 21, 9, 41),
+    );
     await CalmRepo.setCurrent(e);
     final loaded = await CalmRepo.current();
     expect(loaded!.content, 'hi');
@@ -51,10 +56,13 @@ void main() {
 
   testWidgets('active drawer shows Cooling Down', (tester) async {
     final now = DateTime.now();
-    await CalmRepo.setCurrent(CalmEntry(
+    await CalmRepo.setCurrent(
+      CalmEntry(
         content: 'stored',
         lockedAt: now,
-        lockUntil: now.add(const Duration(hours: 12))));
+        lockUntil: now.add(const Duration(hours: 12)),
+      ),
+    );
 
     tester.view.physicalSize = const Size(393, 852);
     tester.view.devicePixelRatio = 1.0;
@@ -68,14 +76,54 @@ void main() {
     expect(find.textContaining('Records'), findsOneWidget);
   });
 
-  testWidgets('unlocked drawer shows the stored content (post-skip)',
-      (tester) async {
+  testWidgets('history card opens archived records and their content', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    await CalmRepo.archive(
+      CalmEntry(
+        content: 'an archived private thought',
+        lockedAt: now.subtract(const Duration(days: 1)),
+        lockUntil: now.subtract(const Duration(hours: 12)),
+      ),
+    );
+    await CalmRepo.setCurrent(
+      CalmEntry(
+        content: 'current thought',
+        lockedAt: now,
+        lockUntil: now.add(const Duration(hours: 12)),
+      ),
+    );
+
+    tester.view.physicalSize = const Size(393, 852);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(const MaterialApp(home: CalmDrawerPage()));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await tester.tap(find.byKey(const Key('open-calm-history')));
+    await tester.pumpAndSettle();
+    expect(find.text('Calm Drawer History'), findsOneWidget);
+    expect(find.text('an archived private thought'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('calm-history-0')));
+    await tester.pumpAndSettle();
+    expect(find.text('History Detail'), findsOneWidget);
+    expect(find.text('an archived private thought'), findsOneWidget);
+  });
+
+  testWidgets('unlocked drawer shows the stored content (post-skip)', (
+    tester,
+  ) async {
     final now = DateTime.now();
     // 已解锁：lockUntil 在过去
-    await CalmRepo.setCurrent(CalmEntry(
+    await CalmRepo.setCurrent(
+      CalmEntry(
         content: 'my kept thought',
         lockedAt: now.subtract(const Duration(hours: 1)),
-        lockUntil: now.subtract(const Duration(seconds: 1))));
+        lockUntil: now.subtract(const Duration(seconds: 1)),
+      ),
+    );
 
     tester.view.physicalSize = const Size(393, 852);
     tester.view.devicePixelRatio = 1.0;
