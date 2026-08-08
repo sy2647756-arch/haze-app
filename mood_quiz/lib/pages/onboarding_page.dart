@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import '../data/app_state_store.dart';
@@ -15,7 +16,9 @@ class OnboardingGate extends StatefulWidget {
 }
 
 class _OnboardingGateState extends State<OnboardingGate> {
-  static const _key = 'haze_onboarding_complete_v1';
+  // v2 makes the complete splash, introduction, and profile flow visible once
+  // to people who previously entered the app before those screens were wired.
+  static const _key = 'haze_onboarding_complete_v2';
   bool? _complete;
 
   @override
@@ -42,8 +45,13 @@ class _OnboardingGateState extends State<OnboardingGate> {
 }
 
 class OnboardingFlow extends StatefulWidget {
-  const OnboardingFlow({super.key, required this.onFinished});
+  const OnboardingFlow({
+    super.key,
+    required this.onFinished,
+    this.initialPhase = 0,
+  });
   final VoidCallback onFinished;
+  final int initialPhase;
 
   @override
   State<OnboardingFlow> createState() => _OnboardingFlowState();
@@ -54,12 +62,18 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   static const _yellow = Color(0xFFFFE229);
   final _name = TextEditingController();
   final _birthday = TextEditingController();
-  int _phase = 0;
+  late int _phase;
   int _guide = 0;
   int _question = 0;
   String? _gender;
   String _partnerName = '';
   String? _relationship;
+
+  @override
+  void initState() {
+    super.initState();
+    _phase = widget.initialPhase;
+  }
 
   @override
   void dispose() {
@@ -417,7 +431,18 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           ),
         ),
         _field(220, 'Name', 'Type here', _name),
-        _field(327, 'Birthday', 'dd mm yyyy', _birthday),
+        _field(
+          327,
+          'Birthday',
+          'DD MM YYYY',
+          _birthday,
+          fieldKey: const Key('onboarding-birthday-input'),
+          keyboardType: TextInputType.datetime,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9 ./-]')),
+            LengthLimitingTextInputFormatter(10),
+          ],
+        ),
       ],
     );
   }
@@ -426,8 +451,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     double top,
     String label,
     String hint,
-    TextEditingController controller,
-  ) {
+    TextEditingController controller, {
+    Key? fieldKey,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
     return Positioned(
       left: 25,
       top: top,
@@ -438,7 +466,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           Text(label, style: const TextStyle(color: _magenta, fontSize: 16)),
           const SizedBox(height: 8),
           TextField(
+            key: fieldKey,
             controller: controller,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
             decoration: InputDecoration(
               hintText: hint,
               suffixIcon: const Icon(Icons.edit_outlined, size: 18),
