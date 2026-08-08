@@ -16,9 +16,9 @@ class OnboardingGate extends StatefulWidget {
 }
 
 class _OnboardingGateState extends State<OnboardingGate> {
-  // v2 makes the complete splash, introduction, and profile flow visible once
-  // to people who previously entered the app before those screens were wired.
-  static const _key = 'haze_onboarding_complete_v2';
+  // v3 restores the complete splash, introduction, and profile flow once for
+  // people whose browser previously marked the incomplete v2 flow as done.
+  static const _key = 'haze_onboarding_complete_v3';
   bool? _complete;
 
   @override

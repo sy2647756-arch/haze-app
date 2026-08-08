@@ -5,11 +5,11 @@ import 'package:mood_quiz/pages/onboarding_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('v2 onboarding is shown even when the old flow was completed', (
+  testWidgets('v3 onboarding is shown even when the v2 flow was completed', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
-      'haze_onboarding_complete_v1': true,
+      'haze_onboarding_complete_v2': true,
     });
 
     await tester.pumpWidget(
