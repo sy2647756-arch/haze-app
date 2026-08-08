@@ -66,7 +66,7 @@ class KimiService {
                 'messages': messages,
               },
             )
-            .timeout(Duration(seconds: attempt == 0 ? 18 : 14));
+            .timeout(Duration(seconds: attempt == 0 ? 36 : 22));
 
         if (response.status == 200) {
           final data = response.data;

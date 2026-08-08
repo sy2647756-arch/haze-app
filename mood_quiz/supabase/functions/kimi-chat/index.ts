@@ -66,45 +66,79 @@ export default {
         ? counselingPrompt(therapistName || "Haze Guide")
         : treeHolePrompt;
 
-      const upstream = await fetch(
-      "https://api.moonshot.cn/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: Deno.env.get("KIMI_MODEL") || "kimi-k2.6",
-            messages: [{ role: "system", content: systemPrompt }, ...messages],
-            thinking: { type: "disabled" },
-            max_tokens: 320,
-            temperature: 1,
-          }),
-        },
+      // The short Moonshot model is a better fit for this chat: it responds
+      // faster and consistently returns the answer in `message.content`.
+      // If a custom Kimi model is configured but returns an empty/transient
+      // response, retry once with the stable short-chat model.
+      const configuredModel = Deno.env.get("KIMI_MODEL")?.trim() ||
+        "moonshot-v1-8k";
+      const models = configuredModel === "moonshot-v1-8k"
+        ? [configuredModel, configuredModel]
+        : [configuredModel, "moonshot-v1-8k"];
+
+      for (let attempt = 0; attempt < models.length; attempt++) {
+        const model = models[attempt];
+        const controller = new AbortController();
+        const timeout = setTimeout(
+          () => controller.abort(),
+          attempt === 0 ? 18000 : 14000,
+        );
+        try {
+          const upstream = await fetch(
+            "https://api.moonshot.cn/v1/chat/completions",
+            {
+              method: "POST",
+              signal: controller.signal,
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model,
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  ...messages,
+                ],
+                max_tokens: 512,
+                temperature: 0.7,
+                ...(model.startsWith("kimi-")
+                  ? { thinking: { type: "disabled" } }
+                  : {}),
+              }),
+            },
+          );
+
+          if (!upstream.ok) {
+            const detail = (await upstream.text()).slice(0, 300);
+            console.error("Kimi API error", model, upstream.status, detail);
+            if (upstream.status < 500 && upstream.status !== 429) break;
+          } else {
+            const data = await upstream.json();
+            const content = data?.choices?.[0]?.message?.content;
+            if (typeof content === "string" && content.trim()) {
+              return Response.json({ content: content.trim() });
+            }
+            console.error(
+              "Kimi API returned empty content",
+              model,
+              data?.choices?.[0]?.finish_reason,
+            );
+          }
+        } catch (error) {
+          console.error("Kimi request failed", model, error);
+        } finally {
+          clearTimeout(timeout);
+        }
+
+        if (attempt === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+      }
+
+      return Response.json(
+        { error: "AI provider is temporarily unavailable" },
+        { status: 502 },
       );
-
-      if (!upstream.ok) {
-        const detail = (await upstream.text()).slice(0, 300);
-        console.error("Kimi API error", upstream.status, detail);
-        return Response.json(
-          {
-            error: "AI provider request failed",
-            providerStatus: upstream.status,
-          },
-          { status: 502 },
-        );
-      }
-
-      const data = await upstream.json();
-      const content = data?.choices?.[0]?.message?.content;
-      if (typeof content !== "string" || !content.trim()) {
-        return Response.json(
-          { error: "AI provider returned no content" },
-          { status: 502 },
-        );
-      }
-      return Response.json({ content: content.trim() });
     } catch (error) {
       console.error(error);
       return Response.json({ error: "Unexpected server error" }, { status: 500 });
